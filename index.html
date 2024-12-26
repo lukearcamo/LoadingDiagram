@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Catalyst Loading Diagram Generator</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2/dist/svg.min.js"></script>
+    </head>
+    <style>
+        body {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+        }
+        #UI {
+            width: 500px;
+            font-family:'Trebuchet MS', Helvetica, sans-serif;
+            font-size: 14px;
+        }
+        h3 {
+            margin-bottom: 0;
+        }
+        label {
+            display: inline-block;
+            width: 50%;
+        }
+        input[type="number"], select {
+            width: 50%;
+            box-sizing: border-box;
+        }
+        textarea {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        input[type="checkbox"] {
+            display: inline-block;
+            vertical-align: middle;
+        }
+        button {
+            margin-top: 20px;
+        }
+    </style>
+    <body>
+        <div id="UI">
+            <h1>Catalyst Loading Diagram Generator</h1>
+            <details>
+                <summary><b>About</b></summary>
+                <p>
+                    <b>Purpose/Scope:</b>
+                    Automatically generate a to-scale catalyst reactor loading diagram without building from scratch using shapes in an image editor.
+                    The only important data required are the reactor dimensions and the heights of each layer;
+                    elevations/depths are automatically calculated.
+                    All other settings are related to graphical/data formatting.
+                </p>
+                <p>
+                    <b>Usage:</b> Collect layers and materials data in a spreadsheet, following the column format specified below.
+                    Save as .csv, then copy and paste raw data into text boxes below.
+                    Each time settings are modified, click Update Drawing to generate SVG image.
+                    Download .svg, open in browser to view/print, or make adjustments first in Visio if needed.
+                </p>
+                <p>
+                    <b>Privacy Policy:</b> All calculations are done locally, no data is collected on any server.
+                </p>
+                <p>
+                    Copyright (c) 2024 Luke Arcamo, released under MIT license.
+                    <a href="https://github.com/svgdotjs/svg.js">SVG.js</a> v3.2 is the only dependency, also released under MIT license.
+                </p>
+                <p>
+                    Check out <a href="https://github.com/lukearcamo">my GitHub page</a> if you would like to modify the code for finer customization, or provide feedback/feature suggestions.
+                </p>
+            </details>
+            <h3>CSV Layer Data:</h3>
+            Columns: Material Name, Height (in" or ft' in"), Color (#hex or <a href="https://www.w3schools.com/cssref/css_colors.php">CSS name</a>)<br>
+            <textarea id="layerData" spellcheck="false" rows="4">Bed 1 Hardware,1' 4",grey
+Bed 1 Gap,1' 5",transparent
+1/4" Inert Balls,6",cornflowerblue
+Catalyst 1,5' 5",gold
+Catalyst 2,10' 1",tomato
+1/4" Inert Balls,6",cornflowerblue
+Bed 2 Hardware,7' 8",grey
+Bed 2 Gap,1' 5",none
+1/4" Inert Balls,6",cornflowerblue
+Catalyst 1,5' 5",gold
+Catalyst 2,10' 1",tomato
+Bed 3 Hardware,7' 8",grey
+Bed 3 Gap,1' 5",none
+1/4" Inert Balls,6",cornflowerblue
+Catalyst 1,5' 5",gold
+Catalyst 2,10' 1",tomato
+1/4" Inert Balls,6",cornflowerblue
+1" Inert Balls,3' 6",cornflowerblue</textarea>
+            <h3>CSV Material Data:</h3>
+            Columns: Material Name, Bulk Density (lb/ft3), Size per pkg, Size UoM (lb or ft3)<br>
+            <textarea id="materialData" spellcheck="false" rows="4">Catalyst 1,40.2,200,lb
+Catalyst 2,38.1,200,lb
+1/4" Ceramic Balls,75.3,25,ft3
+1" Ceramic Balls,75.3,25,ft3</textarea>
+            <h3>Dimensions:</h3>
+            <label for="innerDiameter">Inner Diameter (in): </label><input type="number" id="innerDiameter" min="0" value="150" step="0.0625"><br>
+            <label for="tanToTan">Tangent to Tangent (in): </label><input type="number" id="tanToTan" min="0" value="800" step="0.0625"><br>
+            <label for="headShape">Head Shape: </label><select name="headShape" id="headShape">
+                <option value="hemispherical">Hemispherical</option>
+                <option value="ellipsoidal">Ellipsoidal 2:1</option>
+            </select><br>
+            <label for="topFlangeHeight">Top Flange Height (in): </label><input type="number" id="topFlangeHeight" min="0" value="40" step="0.0625"><br>
+            <label for="outletCollectorHeight">Outlet Collector Height (in): </label><input type="number" id="outletCollectorHeight" min="0" value="25" step="0.0625"><br>
+
+            <h3>Formatting:</h3>
+            <label for="fontSize">Font Size (px): </label><input type="number" id="fontSize" min="0" value="6"><br>
+
+            <h3>Measurements:</h3>
+            <label for="direction">Direction: </label><select name="direction" id="direction">
+                <option value="absoluteDepth">Absolute Depth</option>
+                <option value="absoluteElevation">Absolute Elevation</option>
+                <option value="relativeDepth">Relative Depth</option>
+                <option value="relativeElevation">Relative Elevation</option>
+            </select><br>
+            <label for="referenceLineOffset">Reference Line Absolute Offset (in): </label><input type="number" id="referenceLineOffset" value="-40" step="0.0625"><br>
+            <label for="feetInches">ft' in": </label><input type="checkbox" id="feetInches" checked><br>
+            <label for="splitLayers">Split layers: </label><input type="checkbox" id="splitLayers" checked> (i.e. tangent lines, outlet collector)<br>
+            <label for="displayData">Display Data: </label><select name="displayData" id="displayData">
+                <option value="volume">Volume (ft3)</option>
+                <option value="mass">Mass (lb)</option>
+                <option value="numPkgs">Number of bags/drums</option>
+            </select><br>
+            
+            <br>
+            Names of zero-outage reference layers (comma-separated, no space):<br>
+            <textarea id="zeroLayers" spellcheck="false">Bed 2 Gap</textarea>
+            Names of notch gap layers (comma-separated, no space):<br>
+            <textarea id="notchGapLayers" spellcheck="false">Bed 2 Hardware</textarea>
+
+            <br>
+            <button id="updateDrawing">Update drawing</button>
+            <button id="downloadSVG">Download .svg</button>
+        </div>
+        <script>
+            //============================================//
+            // Define Parameters
+            //============================================//
+            
+            // Global variables
+            var layerData = [];
+            var zeroLayers = [];
+            var notchGapLayers = [];
+            var requiresReprocessData = true;
+            var splitElevations = [];
+
+            // Inputted reactor dimension parameters
+            var innerDiameter = 192;
+            var tanToTan = 1332.125;
+            var headWidthToHeightRatio = 1;
+
+            var topFlangeHeight = 40;
+            var outletCollectorHeight = 16;
+
+            // Calculated reactor dimension parameters
+            var headHeight = innerDiameter / 2 / headWidthToHeightRatio;
+            var shellHeight = tanToTan + headHeight * 2;
+            var reactorHeight = topFlangeHeight + shellHeight;
+            var totalLayersHeight = reactorHeight;
+
+            // Hidden formatting options
+            var marginLeftRight = 70;
+            var marginTopBottom = 10;
+            var notchWidth = 10;
+            var maskThickness = Math.sqrt(innerDiameter**2 / 2) - innerDiameter / 2;
+
+            //============================================//
+            // Utility Functions
+            //============================================//
+            function inchesToFeetInches(x) {
+                return Math.trunc(x / 12) + "\' " + parseFloat(Math.abs(x % 12).toFixed(4)) + "\"";
+            }   
+            function feetInchesToInches(str) {
+                if (str.search(/['"]/) != -1) {
+                    var feet = str.match(/(\d+)'/);
+                    feet = feet == null ? 0 : parseInt(feet[1]);
+                    var inches = str.match(/([\d.]+)"/);
+                    inches = inches == null ? 0 : parseFloat(inches[1]);
+                }
+                else {
+                    return parseInt(str);
+                }
+                return feet * 12 + inches;
+            }
+            function layerVolume(inches) { // Approximate only; loses accuracy when layer is within shell head
+                return Math.PI * innerDiameter**2 / 4 * inches / 1728; // UoM: ft3
+            }
+
+            //============================================//
+            // Process Data Before Rendering
+            //============================================//
+            function addLayer(material, label, layerHeight, color, absoluteElevation, relativeElevation) {
+                var mass = undefined;
+                var numPkgs = undefined;
+
+                if (absoluteElevation >= splitElevations[0]) {
+                    var heightAbove = absoluteElevation - splitElevations[0];
+                    var heightBelow = layerHeight - heightAbove;
+                    if (heightBelow > 0) {
+                        var volume = layerVolume(heightBelow);
+                        if (material != undefined) {
+                            mass = volume * material.bulkDensity;
+                            numPkgs = (material.sizeUoM == "lb" ? mass : volume) / material.sizePerPkg;
+                        }
+
+                        layerData.push({
+                            height: heightBelow,
+                            absoluteElevation: absoluteElevation - heightAbove,
+                            relativeElevation: relativeElevation - heightAbove,
+                            label, color, borderStyle: "dashed",
+                            volume, mass, numPkgs,
+                        });
+                    }
+                    
+                    splitElevations.shift();
+                    
+                    if (heightAbove > 0) {
+                        addLayer(material, label, heightAbove, color, absoluteElevation, relativeElevation);
+                    }
+                }
+                else {
+                    var volume = layerVolume(layerHeight);
+                    if (material != undefined) {
+                        mass = volume * material.bulkDensity;
+                        numPkgs = (material.sizeUoM == "lb" ? mass : volume) / material.sizePerPkg;
+                    }
+
+                    layerData.push({
+                        height: layerHeight,
+                        absoluteElevation: absoluteElevation,
+                        relativeElevation: relativeElevation,
+                        label, color, borderStyle: "solid",
+                        volume, mass, numPkgs,
+                    });
+                }
+            }
+            function processData() {
+                zeroLayers = document.getElementById("zeroLayers").value.split(",");
+                notchGapLayers = document.getElementById("notchGapLayers").value.split(",");
+                splitElevations = [1e9];
+                if (document.getElementById("splitLayers").checked) { 
+                    splitElevations = [outletCollectorHeight, headHeight, headHeight + tanToTan]; // Must be in order, lowest to highest // , shellHeight
+                }
+
+                var materialData = {};
+                var splitLines = document.getElementById("materialData").value.split("\n");
+                for (var line of splitLines) {
+                    line = line.split(",");
+                    materialData[line[0]] = {
+                        bulkDensity: parseFloat(line[1]),
+                        sizePerPkg: parseFloat(line[2]),
+                        sizeUoM: line[3],
+                    };
+                }
+
+                layerData = []; // Clear layerData
+                splitLines = document.getElementById("layerData").value.split("\n");
+                splitLines.reverse();
+
+                var absoluteElevation = 0;
+                var relativeElevation = 0;
+
+                // Calculate absolute/relative elevation first
+                for (var line of splitLines) {
+                    line = line.split(",");
+                    var layerHeight = feetInchesToInches(line[1]);
+                    var material = materialData[line[0]];
+                    
+                    absoluteElevation += layerHeight;
+                    relativeElevation += layerHeight;
+
+                    if (zeroLayers.includes(line[0])) relativeElevation = 0;
+
+                    addLayer(material, line[0], layerHeight, line[2], absoluteElevation, relativeElevation);
+                }
+
+                totalLayersHeight = absoluteElevation;
+
+                // Fill the remaining space on top
+                var remainingSpace = reactorHeight - totalLayersHeight;
+                if (remainingSpace > 0) {
+                    absoluteElevation += remainingSpace;
+                    relativeElevation += remainingSpace;
+
+                    addLayer(undefined, "Remaining Space", remainingSpace, "none", absoluteElevation, relativeElevation);
+
+                    totalLayersHeight = absoluteElevation;
+                }
+
+                layerData.reverse();
+                layerData[0].borderStyle = "none";
+
+                // Add bottommost notch label:
+                addLayer(undefined, "", 0, "none", 0, 0);
+
+                // Calculate absolute/relative depth
+                var relativeDepth = 0;
+                for (var row of layerData) {
+                    row.absoluteDepth = shellHeight - row.absoluteElevation;
+                    if (zeroLayers.includes(row.label)) relativeDepth = 0;
+                    row.relativeDepth = relativeDepth;
+                    relativeDepth += row.height;
+                }
+            }
+            
+            //============================================//
+            // Initialize Drawing
+            //============================================//
+            const draw = SVG().addTo('body').insertBefore("#UI");
+            var mask = draw.rect(100, 100);
+            var outline = draw.rect(100, 100);
+            var topFlange = draw.rect(100, 100);
+            var outletCollector = draw.rect(100, 100);
+            
+            const clearableShapes = [];
+            function update() {
+                //============================================//
+                // Obtain Parameters from GUI
+                //============================================//
+                innerDiameter = parseFloat(document.getElementById("innerDiameter").value);
+                tanToTan = parseFloat(document.getElementById("tanToTan").value);
+                headWidthToHeightRatio = document.getElementById("headShape").value == "hemispherical" ? 1 : 2;
+                topFlangeHeight = parseFloat(document.getElementById("topFlangeHeight").value);
+                outletCollectorHeight = parseFloat(document.getElementById("outletCollectorHeight").value);
+
+                headHeight = innerDiameter / 2 / headWidthToHeightRatio;
+                shellHeight = tanToTan + headHeight * 2;
+                reactorHeight = topFlangeHeight + shellHeight;
+
+                var fontSize = parseInt(document.getElementById("fontSize").value);
+
+                var direction = document.getElementById("direction").value;
+                var referenceLineOffset = parseFloat(document.getElementById("referenceLineOffset").value);
+                var feetInches = document.getElementById("feetInches").checked;
+                var displayData = document.getElementById("displayData").value;
+                
+                const isAbsolute = direction.includes("absolute");
+                const isDepth = direction.includes("Depth");
+
+                if (requiresReprocessData) {
+                    requiresReprocessData = false;
+                    processData();
+                }
+
+                //============================================//
+                // Apply Reactor Dimensions
+                //============================================//
+
+                draw.size(innerDiameter + marginLeftRight * 2, Math.max(totalLayersHeight, reactorHeight) + marginTopBottom * 2);
+                draw.viewbox(-marginLeftRight, shellHeight - Math.max(totalLayersHeight, reactorHeight) - marginTopBottom, draw.width(), draw.height());
+
+                mask.size(innerDiameter + maskThickness, shellHeight + maskThickness);
+                mask.move(-maskThickness / 2, -maskThickness / 2);
+                mask.radius(innerDiameter / 2 + maskThickness / 2, headHeight + maskThickness / 2);
+                mask.stroke({ color: "white", width: maskThickness });
+                mask.fill("none");
+
+                outline.size(innerDiameter, shellHeight);
+                outline.radius(innerDiameter / 2, headHeight);
+                outline.stroke({ color: "black", width: 1 });
+                outline.fill("none");
+                
+                topFlange.size(topFlangeHeight, topFlangeHeight);
+                topFlange.cx(innerDiameter / 2);
+                topFlange.y(-topFlangeHeight);
+                topFlange.stroke({ color: "black", width: 1 });
+                topFlange.fill("none");
+                
+                outletCollector.size(outletCollectorHeight, outletCollectorHeight);
+                outletCollector.cx(innerDiameter / 2);
+                outletCollector.y(shellHeight - outletCollectorHeight);
+                outletCollector.stroke({ color: "black", width: 1 });
+                outletCollector.fill("none");
+
+                //============================================//
+                // Draw Layers
+                //============================================//
+                clearableShapes.forEach(x => x.remove());
+                for (var row of layerData) {
+                    if (row.color != "none" && row.color != "transparent") {
+                        var background = draw.rect(innerDiameter, row.height);
+                        background.move(0, row.absoluteDepth);
+                        background.fill(row.color);
+                        background.back();
+                        clearableShapes.push(background);
+                    }
+
+                    if (row.borderStyle != "none") {
+                        var border = draw.line(0, 0, innerDiameter, 0);
+                        border.move(0, row.absoluteDepth);
+                        border.stroke({ color: "black", width: 1, dasharray: row.borderStyle == "dashed" ? "4 4" : "1 0" });
+                        border.insertBefore(mask);
+                        clearableShapes.push(border);
+                    }
+
+                    var outletCollectorDepth = shellHeight - outletCollectorHeight;
+                    if (row.label != "") {
+                        var appendToLabel = "";
+                        if (displayData == "volume") {
+                            var isWithinBottomHead = row.absoluteDepth + row.height > shellHeight - headHeight;
+                            var isWithinTopHead = row.absoluteDepth < headHeight;
+                            appendToLabel = " [" + (isWithinBottomHead || isWithinTopHead ? "<" : "") + row.volume.toFixed(2) + " ft3]";
+                        } else if (displayData == "mass" && row.mass != undefined) {
+                            appendToLabel = " [" + row.mass.toFixed(2) + " lbs]";
+                        } else if (displayData == "numPkgs" && row.numPkgs != undefined) {
+                            appendToLabel = " [~" + row.numPkgs.toFixed(1) + " pkgs]";
+                        }
+                        var layerText = draw.text(row.label + appendToLabel);
+                        layerText.font({ anchor: "middle", size: fontSize, weight: "bold", leading: 1, family: "Helvetica" });
+                        layerText.center(innerDiameter / 2, row.absoluteDepth + row.height / 2); // Order of font and positioning matters!
+                        clearableShapes.push(layerText);
+                    }
+
+                    // Right-side notches
+                    if (isAbsolute || !notchGapLayers.includes(row.label)) {
+                        var notchRight = draw.polyline([[0, 0], [notchWidth, 0], [notchWidth / 2, 0], [notchWidth / 2, row.height], [notchWidth, row.height], [0, row.height]]);
+                        notchRight.move(innerDiameter + notchWidth, row.absoluteDepth);
+                        notchRight.fill("none").stroke({ color: "black", width: 1 });
+                        clearableShapes.push(notchRight);
+                    }
+                    
+                    var notchValueRight = isAbsolute ? row[direction] - referenceLineOffset : row[direction];
+                    notchValueRight = feetInches ? inchesToFeetInches(notchValueRight) : parseFloat(notchValueRight.toFixed(4)) + "\"";
+                    var notchTextRight = draw.text(notchValueRight);
+                    notchTextRight.font({ anchor: "start", size: fontSize, leading: 1, family: "Helvetica" });
+                    notchTextRight.x(innerDiameter + notchWidth * 2.5);
+                    notchTextRight.cy(row.absoluteDepth);
+                    clearableShapes.push(notchTextRight);
+
+                    // Left-side notches
+                    if (row.height > 0) {
+                        var notchLeft = draw.polyline([[notchWidth, 0], [0, 1], [0, row.height - 1], [notchWidth, row.height]]);
+                        notchLeft.move(-notchWidth * 2, row.absoluteDepth);
+                        notchLeft.fill("none").stroke({ color: "black", width: 1 });
+                        clearableShapes.push(notchLeft);
+                        
+                        var notchValueLeft = feetInches ? inchesToFeetInches(row.height) : parseFloat(row.height.toFixed(4)) + "\"";
+                        var notchTextLeft = draw.text(notchValueLeft);
+                        notchTextLeft.x(-notchWidth * 2.5); // Order matters for some reason; different from right-side notches!
+                        notchTextLeft.font({ anchor: "end", size: fontSize, leading: 1, family: "Helvetica" });
+                        notchTextLeft.cy(row.absoluteDepth + row.height / 2);
+                        notchTextLeft.rebuild(true);
+                        clearableShapes.push(notchTextLeft);
+                    }
+                }
+                
+                // Draw reference line
+                if (isAbsolute && referenceLineOffset > 0) {
+                    var referenceLine = draw.line(0, 0, innerDiameter, 0);
+                    referenceLine.move(0, isDepth ? referenceLineOffset : shellHeight - referenceLineOffset);
+                    referenceLine.stroke({ color: "black", width: 2 });
+                    referenceLine.insertBefore(mask);
+                    clearableShapes.push(referenceLine);
+                }
+            }
+            update();
+            setTimeout(function () { // Fix for page scrolled down when page/svg loaded
+                window.scrollTo(0, 0);
+            }, 12);
+            document.getElementById("updateDrawing").addEventListener("click", update);
+            document.getElementById("downloadSVG").addEventListener("click", e => {
+                var file = new File([draw.svg()], "cat_diag.svg", { type: "image/svg+xml" });
+                var url = URL.createObjectURL(file);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = "cat_diag.svg";
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            });
+
+            // Parameters that require data reprocessing when updated:
+            document.getElementById("tanToTan").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("headShape").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("topFlangeHeight").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("outletCollectorHeight").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("layerData").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("materialData").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("zeroLayers").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("notchGapLayers").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("splitLayers").addEventListener("input", e => requiresReprocessData = true);
+        </script>
+    </body>
+</html>
