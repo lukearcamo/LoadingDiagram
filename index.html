@@ -99,11 +99,11 @@ Catalyst 2,10' 1",tomato
 1/4" Inert Balls,6",cornflowerblue
 1" Inert Balls,3' 6",cornflowerblue</textarea>
             <h3>CSV Material Data</h3>
-            Columns: Material Name, Bulk Density (lb/ft3), Qty/Pkg, UoM (lb or ft3)<br>
-            <textarea id="materialData" spellcheck="false" rows="4">Catalyst 1,40.2,200,lb
-Catalyst 2,38.1,200,lb
-1/4" Ceramic Balls,75.3,25,ft3
-1" Ceramic Balls,75.3,25,ft3</textarea>
+            Columns: Material Name, Bulk Density (lb/ft3), Qty/Pkg, UoM (lb or ft3), Pkg Type, Load Method<br>
+            <textarea id="materialData" spellcheck="false" rows="4">Catalyst 1,40.2,200,lb,drum,Dense
+Catalyst 2,38.1,200,lb,drum,Sock
+1/4" Inert Balls,75.3,25,ft3,bag,Sock
+1" Inert Balls,75.3,25,ft3,bag,Sock</textarea>
             <h3>Dimensions</h3>
             <label for="innerDiameter">Inner Diameter (in): </label><input type="number" id="innerDiameter" min="0" value="150" step="0.0625"><br>
             <label for="tanToTan">Tangent to Tangent (in): </label><input type="number" id="tanToTan" min="0" value="800" step="0.0625"><br>
@@ -113,22 +113,17 @@ Catalyst 2,38.1,200,lb
             </select><br>
             <label for="topFlangeHeight">Top Flange Height (in): </label><input type="number" id="topFlangeHeight" min="0" value="40" step="0.0625"><br>
             <label for="outletCollectorHeight">Outlet Collector Height (in): </label><input type="number" id="outletCollectorHeight" min="0" value="25" step="0.0625"><br>
+            <label for="outletCollectorDiameter">Outlet Collector Diameter (in): </label><input type="number" id="outletCollectorDiameter" min="0" value="50" step="0.0625"><br>
 
             <h3>Markings</h3>
             <label for="direction">Direction: </label><select name="direction" id="direction">
-                <option value="absoluteDepth">Absolute Depth</option>
-                <option value="absoluteElevation">Absolute Elevation</option>
-                <option value="relativeDepth">Relative Depth</option>
-                <option value="relativeElevation">Relative Elevation</option>
+                <option value="Depth">Depth</option>
+                <option value="Elevation">Elevation</option>
             </select><br>
             <label for="referenceLineOffset">Ref. Line (for abs. depth/elev.) (in): </label><input type="number" id="referenceLineOffset" value="-40" step="0.0625"><br>
             <label for="feetInches">ft' in": </label><input type="checkbox" id="feetInches" checked><br>
             <label for="splitLayers">Split layers: </label><input type="checkbox" id="splitLayers" checked> (e.g. tan. lines, outlet collector)<br>
-            <label for="displayData">Display Data: </label><select name="displayData" id="displayData">
-                <option value="volume">Volume (ft3)</option>
-                <option value="mass">Mass (lb)</option>
-                <option value="numPkgs">Number of bags/drums</option>
-            </select><br>
+            <label for="decimals">Round to number of decimals: </label><input type="number" id="decimals" value="0" step="1"><br>
             
             <br>
             List of zero-outage reference layers:<br>
@@ -146,11 +141,14 @@ Catalyst 2,38.1,200,lb
             <details>
                 <summary><h3>Advanced Formatting</h3></summary>
                 <label for="fontSize">Font Size (px): </label><input type="number" id="fontSize" min="0" value="6"><br>
-                <label for="marginLeft">Margin Left (px): </label><input type="number" id="marginLeft" min="0" value="60"><br>
+                <br>
+                <label for="marginLeft">Margin Left (px): </label><input type="number" id="marginLeft" min="0" value="200"><br>
                 <label for="marginRight">Margin Right (px): </label><input type="number" id="marginRight" min="0" value="200"><br>
                 <label for="marginTop">Margin Top (px): </label><input type="number" id="marginTop" min="0" value="10"><br>
                 <label for="marginBottom">Margin Bottom (px): </label><input type="number" id="marginBottom" min="0" value="10"><br>
+                <br>
                 <label for="notchWidth">Notch Width (px): </label><input type="number" id="notchWidth" min="0" value="10"><br>
+                <br>
                 <label for="shapesDraggable">Shapes Draggable: </label><input type="checkbox" id="shapesDraggable"> (Warning: Resets if updated)<br>
             </details>
 
@@ -158,7 +156,6 @@ Catalyst 2,38.1,200,lb
                 <summary><h3>Save/Restore Settings</h3></summary>
                 Copy/paste JSON here:
                 <textarea id="settingsJSON" spellcheck="false" rows="4"></textarea>
-                <!-- <button id="downloadSettings">Download settings as .json</button> -->
                 <button id="restoreSettings">Restore settings from JSON</button>
                 <button id="saveSettings">Save settings to JSON</button>
             </details>
@@ -169,6 +166,7 @@ Catalyst 2,38.1,200,lb
             //============================================//
             
             var layerData = [];
+            var materialData = {};
             var requiresReprocessData = true;
 
             var settings = {
@@ -177,19 +175,21 @@ Catalyst 2,38.1,200,lb
                 headWidthToHeightRatio: 1,
                 topFlangeHeight: 40,
                 outletCollectorHeight: 25,
+                outletCollectorDiameter: 50,
 
-                direction: "Absolute Depth",
+                direction: "Depth",
                 referenceLineOffset: -40,
                 feetInches: true,
-                splitLayers: true,
-                displayData: "volume", // Other options: mass, numPkgs
+                splitLayers: false,
+                decimals: 0,
+
                 zeroLayers: ["Bed 2 Gap", "Bed 3 Gap"],
                 notchGapLayers: ["Bed 2 Hardware", "Bed 3 Hardware"],
 
                 equipmentTag: "AA-R-000",
 
                 fontSize: 6,
-                marginLeft: 70,
+                marginLeft: 250,
                 marginRight: 250,
                 marginTop: 10,
                 marginBottom: 10,
@@ -244,7 +244,11 @@ Catalyst 2,38.1,200,lb
             //============================================//
 
             function inchesToFeetInches(x) {
-                return Math.trunc(x / 12) + "\' " + parseFloat(Math.abs(x % 12).toFixed(4)) + "\"";
+                var feet = Math.trunc(x / 12);
+                var inches = parseFloat(Math.abs(x % 12).toFixed(settings.decimals));
+                if (feet > 0 && inches == 0) return feet + "\'";
+                if (feet == 0 && inches >= 0) return inches + "\"";
+                else return feet + "\' " + inches + "\"";
             }   
             function feetInchesToInches(str) {
                 if (str.search(/['"]/) != -1) {
@@ -258,8 +262,43 @@ Catalyst 2,38.1,200,lb
                 }
                 return feet * 12 + inches;
             }
-            function layerVolume(inches) { // Approximate only; loses accuracy when layer is within shell head
-                return Math.PI * settings.innerDiameter**2 / 4 * inches / 1728; // UoM: ft3
+            function cylinderVolume(h, d) { // UoM: in
+                return Math.PI * d**2 / 4 * h / 1728; // UoM: ft3
+            }
+            // Source: https://www.vcalc.com/wiki/ellipsoid-cap-volume
+            function ellipsoidCapVolume(h) { // UoM: in
+                var a = settings.innerDiameter / 2;
+                var b = a;
+                var c = headHeight;
+                var x = c - h;
+                return Math.PI * a * b * (2 * c / 3 - x + x**3 / (3 * c**2)) / 1728; // UoM: ft
+            }
+            function exactLayerVolume(absoluteElevation, layerHeight) {
+                var top = absoluteElevation;
+                var bottom = absoluteElevation - layerHeight;
+                var tangent = headHeight;
+
+                var volume = 0;
+
+                if (bottom >= tangent) { // Case 1: Fully above bottom tangent
+                    volume = cylinderVolume(layerHeight, settings.innerDiameter);
+                }
+                else if (top <= tangent) { // Case 2: Fully below bottom tangent line
+                    var largeCap = ellipsoidCapVolume(top);
+                    var smallCap = ellipsoidCapVolume(bottom);
+                    volume = largeCap - smallCap;
+                }
+                else if (top > tangent && bottom < tangent) { // Case 3: Crosses over bottom tangent line
+                    var cyl = cylinderVolume(top - tangent, settings.innerDiameter);
+                    var largeCap = ellipsoidCapVolume(headHeight);
+                    var smallCap = ellipsoidCapVolume(bottom);
+                    volume = cyl + largeCap - smallCap;
+                }
+                
+                if (bottom < settings.outletCollectorHeight) {
+                    volume -= cylinderVolume(Math.min(settings.outletCollectorHeight, top) - bottom, settings.outletCollectorDiameter);
+                }
+                return volume;
             }
 
             //============================================//
@@ -267,38 +306,27 @@ Catalyst 2,38.1,200,lb
             //============================================//
 
             var splitElevations = [];
+            
+            function addLayer(material, label, layerHeight, color, absoluteElevation, relativeElevation, flag) {
+                var mass, numPkgs;
 
-            function addLayer(material, label, layerHeight, color, absoluteElevation, relativeElevation) {
-                var mass = undefined;
-                var numPkgs = undefined;
-
-                if (absoluteElevation >= splitElevations[0]) {
+                if (absoluteElevation > splitElevations[0]) {
                     var heightAbove = absoluteElevation - splitElevations[0];
                     var heightBelow = layerHeight - heightAbove;
                     if (heightBelow > 0) {
-                        var volume = layerVolume(heightBelow);
-                        if (material != undefined) {
-                            mass = volume * material.bulkDensity;
-                            numPkgs = (material.qtyUoM == "lb" ? mass : volume) / material.qtyPerPkg;
-                        }
-
-                        layerData.push({
-                            height: heightBelow,
-                            absoluteElevation: absoluteElevation - heightAbove,
-                            relativeElevation: relativeElevation - heightAbove,
-                            label, color, borderStyle: "dashed",
-                            volume, mass, numPkgs,
-                        });
+                        addLayer(material, label, heightBelow, color, absoluteElevation - heightAbove, relativeElevation - heightAbove, "below");
                     }
-                    
+
                     splitElevations.shift();
                     
                     if (heightAbove > 0) {
-                        addLayer(material, label, heightAbove, color, absoluteElevation, relativeElevation);
+                        addLayer(material, label, heightAbove, color, absoluteElevation, relativeElevation, "above");
                     }
+
+                    addLayer(material, label, layerHeight, color, absoluteElevation, relativeElevation, "unsplit"); // splitElevations has shifted out by this point
                 }
                 else {
-                    var volume = layerVolume(layerHeight);
+                    var volume = exactLayerVolume(absoluteElevation, layerHeight);
                     if (material != undefined) {
                         mass = volume * material.bulkDensity;
                         numPkgs = (material.qtyUoM == "lb" ? mass : volume) / material.qtyPerPkg;
@@ -308,18 +336,16 @@ Catalyst 2,38.1,200,lb
                         height: layerHeight,
                         absoluteElevation: absoluteElevation,
                         relativeElevation: relativeElevation,
-                        label, color, borderStyle: "solid",
+                        label, color, 
                         volume, mass, numPkgs,
+                        flag,
                     });
                 }
             }
             function processData() {
-                splitElevations = [1e9];
-                if (settings.splitLayers) { 
-                    splitElevations = [settings.outletCollectorHeight, headHeight, headHeight + settings.tanToTan, shellHeight]; // Must be in order, lowest to highest
-                }
+                splitElevations = [settings.outletCollectorHeight, headHeight, headHeight + settings.tanToTan, shellHeight]; // Must be in order, lowest to highest
 
-                var materialData = {};
+                materialData = {};
                 var splitLines = document.getElementById("materialData").value.split("\n");
                 for (var line of splitLines) {
                     if (line == "") continue;
@@ -328,6 +354,8 @@ Catalyst 2,38.1,200,lb
                         bulkDensity: parseFloat(line[1]),
                         qtyPerPkg: parseFloat(line[2]),
                         qtyUoM: line[3],
+                        pkgType: line[4],
+                        loadMethod: line[5] != undefined ? line[5] : "Sock",
                     };
                 }
 
@@ -350,24 +378,19 @@ Catalyst 2,38.1,200,lb
 
                     if (settings.zeroLayers.includes(line[0])) relativeElevation = 0;
 
-                    addLayer(material, line[0], layerHeight, line[2], absoluteElevation, relativeElevation);
+                    addLayer(material, line[0], layerHeight, line[2], absoluteElevation, relativeElevation, "full");
                 }
-
 
                 // Fill the remaining space on top
                 var remainingSpace = reactorHeight - absoluteElevation;
                 if (remainingSpace > 0) {
-                    absoluteElevation += remainingSpace;
-                    relativeElevation += remainingSpace;
-
-                    addLayer(undefined, "Remaining Space", remainingSpace, "none", absoluteElevation, relativeElevation);
+                    addLayer(undefined, "Remaining Space", remainingSpace, "none", absoluteElevation + remainingSpace, relativeElevation + remainingSpace, "full");
                 }
 
                 layerData.reverse();
-                layerData[0].borderStyle = "none";
 
                 // Add bottommost notch label:
-                addLayer(undefined, "", 0, "none", 0, 0);
+                addLayer(undefined, "", 0, "none", 0, 0, "full");
 
                 // Calculate absolute/relative depth
                 var relativeDepth = 0;
@@ -375,7 +398,7 @@ Catalyst 2,38.1,200,lb
                     row.absoluteDepth = shellHeight - row.absoluteElevation;
                     if (settings.zeroLayers.includes(row.label)) relativeDepth = 0;
                     row.relativeDepth = relativeDepth;
-                    relativeDepth += row.height;
+                    if (row.flag != "unsplit") relativeDepth += row.height;
                 }
             }
             
@@ -388,6 +411,9 @@ Catalyst 2,38.1,200,lb
             var outline = draw.rect(100, 100);
             var topFlange = draw.rect(100, 100);
             var outletCollector = draw.rect(100, 100);
+            var docInfo = draw.text("Placeholder");
+            var sample1 = draw.rect(10, 10);
+            var sample2 = draw.rect(10, 10);
 
             const clearableShapes = [];
 
@@ -396,10 +422,6 @@ Catalyst 2,38.1,200,lb
                 // Obtain Parameters from GUI
                 //============================================//
                 getInputs();
-
-                const isAbsolute = settings.direction.includes("absolute");
-                const isDepth = settings.direction.includes("Depth");
-
                 if (requiresReprocessData) {
                     requiresReprocessData = false;
                     processData();
@@ -438,7 +460,7 @@ Catalyst 2,38.1,200,lb
                 topFlange.stroke({ color: "black", width: 1 });
                 topFlange.fill("none");
                 
-                outletCollector.size(settings.outletCollectorHeight, settings.outletCollectorHeight);
+                outletCollector.size(settings.outletCollectorDiameter, settings.outletCollectorHeight);
                 outletCollector.cx(settings.innerDiameter / 2);
                 outletCollector.y(shellHeight - settings.outletCollectorHeight);
                 outletCollector.stroke({ color: "black", width: 1 });
@@ -446,75 +468,120 @@ Catalyst 2,38.1,200,lb
                 outletCollector.insertBefore(mask);
 
                 //============================================//
+                // Helper Functions for Drawing Layers
+                //============================================//
+                
+                clearableShapes.forEach(x => x.remove());
+
+                function hatchPattern(color, hatchSize=4) {
+                    return draw.pattern(hatchSize, hatchSize, add => {
+                        add.rect(hatchSize, hatchSize).fill(color);
+                        add.line(0, 0, hatchSize, hatchSize).stroke({ color: "black", width: 0.5 });
+                    });
+                }
+                function formatMeasurement(value) {
+                    if (settings.feetInches) return inchesToFeetInches(value);
+                    else return parseFloat(value.toFixed(settings.decimals)) + "\"";
+                }
+                function addText(str1, str2, x, cy, anchor, wrap=false, bold1=false, bold2=false) {
+                    var text = draw.text(add => {
+                        var tspan1 = add.tspan(str1);
+                        if (bold1) tspan1.font({ weight: "bold" });
+
+                        if (str2 != "") {
+                            var tspan2 = add.tspan(str2);
+                            if (wrap) tspan2.newLine();
+                            if (bold2) tspan2.font({ weight: "bold" });
+                        }
+                    });
+                    text.font({ anchor: anchor, size: settings.fontSize, leading: 1.2, family: "Helvetica" });
+                    text.dx(x); // x() does not work with anchor: "end"
+                    text.cy(cy);
+                    clearableShapes.push(text);
+                    return text;
+                }
+                function addMarking(x, y, points) {
+                    var marking = draw.polyline(points);
+                    marking.move(x, y);
+                    marking.fill("none").stroke({ color: "black", width: 1 });
+                    clearableShapes.push(marking);
+                }
+                
+                //============================================//
                 // Draw Layers
                 //============================================//
 
-                clearableShapes.forEach(x => x.remove());
                 for (var row of layerData) {
-                    if (row.color != "none" && row.color != "transparent") {
+                    // Useful variables
+                    const visibleSplit = settings.splitLayers ? row.flag != "unsplit" : row.flag != "above" && row.flag != "below";
+                    const wrap = row.height >= settings.fontSize * 2.5;
+                    const material = materialData[row.label];
+                    const notchPoints = [[0, 0], [settings.notchWidth, 0], [settings.notchWidth / 2, 0], [settings.notchWidth / 2, row.height], [settings.notchWidth, row.height], [0, row.height]];
+                    const leftBracketPoints = [[settings.notchWidth, 0], [0, 1], [0, row.height - 1], [settings.notchWidth, row.height]];
+
+                    // Draw background color
+                    if (row.flag != "unsplit" && row.color != "none" && row.color != "transparent") {
                         var background = draw.rect(settings.innerDiameter, row.height);
                         background.move(0, row.absoluteDepth);
                         background.fill(row.color);
+                        if (material != undefined && material.loadMethod == "Dense") {
+                            background.fill(hatchPattern(row.color));
+                        }
                         background.back();
                         clearableShapes.push(background);
                     }
 
-                    if (row.borderStyle != "none") {
+                    // Draw top border
+                    if (row.absoluteElevation != reactorHeight && row.height > 0) {
                         var border = draw.line(0, 0, settings.innerDiameter, 0);
                         border.move(0, row.absoluteDepth);
-                        border.stroke({ color: "black", width: 1, dasharray: row.borderStyle == "dashed" ? "4 4" : "1 0" });
+                        border.stroke({ color: "black", width: 0.5, dasharray: row.flag == "below" ? "4 4" : "1 0" });
                         border.insertBefore(mask);
                         clearableShapes.push(border);
                     }
 
-                    var outletCollectorDepth = shellHeight - settings.outletCollectorHeight;
-                    if (row.label != "") {
-                        var appendToLabel = "";
-                        if (settings.displayData == "volume") {
-                            var isWithinBottomHead = row.absoluteDepth + row.height > shellHeight - headHeight;
-                            var isWithinTopHead = row.absoluteDepth < headHeight;
-                            appendToLabel = " [" + (isWithinBottomHead || isWithinTopHead ? "<" : "") + row.volume.toFixed(2) + " ft3]";
-                        } else if (settings.displayData == "mass" && row.mass != undefined) {
-                            appendToLabel = " [" + row.mass.toFixed(2) + " lbs]";
-                        } else if (settings.displayData == "numPkgs" && row.numPkgs != undefined) {
-                            appendToLabel = " [~" + row.numPkgs.toFixed(1) + " pkgs]";
+                    // Write text within layer
+                    if (row.label != "" && visibleSplit) {
+                        var str1 = row.label;
+                        var str2 = "";
+                        if (material != undefined) {
+                            if (material.loadMethod == "Dense") str1 += " DENSE LOAD";
+                            str2 = ` [ ${settings.decimals > 0 ? row.numPkgs.toFixed(settings.decimals) : Math.ceil(row.numPkgs) } ${material.pkgType}s × ${material.qtyPerPkg} ${material.qtyUoM} ]`;
                         }
-                        var layerText = draw.text(row.label + appendToLabel);
-                        layerText.font({ anchor: "middle", size: settings.fontSize, weight: "bold", leading: 1, family: "Helvetica" });
-                        layerText.center(settings.innerDiameter / 2, row.absoluteDepth + row.height / 2); // Order of font and positioning matters!
-                        clearableShapes.push(layerText);
+                        var text = addText(str1, str2, 0, row.absoluteDepth + row.height / 2 + 0.5, "middle", wrap, false, true).cx(settings.innerDiameter / 2);
+                        if (material != undefined && material.loadMethod == "Dense") {
+                            var highlight = draw.rect(text.bbox().width + 5, text.bbox().height + 5);
+                            highlight.center(text.bbox().cx, text.bbox().cy);
+                            highlight.fill(row.color);
+                            highlight.insertBefore(text);
+                            // highlight.opacity(0.8);
+                            clearableShapes.push(highlight);
+                        }
                     }
 
-                    // Right-side notches
-                    if (isAbsolute || !settings.notchGapLayers.includes(row.label)) {
-                        var notchRight = draw.polyline([[0, 0], [settings.notchWidth, 0], [settings.notchWidth / 2, 0], [settings.notchWidth / 2, row.height], [settings.notchWidth, row.height], [0, row.height]]);
-                        notchRight.move(settings.innerDiameter + settings.notchWidth, row.absoluteDepth);
-                        notchRight.fill("none").stroke({ color: "black", width: 1 });
-                        clearableShapes.push(notchRight);
-                    }
-                    
-                    var notchValueRight = isAbsolute ? row[settings.direction] - settings.referenceLineOffset : row[settings.direction];
-                    notchValueRight = settings.feetInches ? inchesToFeetInches(notchValueRight) : parseFloat(notchValueRight.toFixed(4)) + "\"";
-                    var notchTextRight = draw.text(notchValueRight);
-                    notchTextRight.font({ anchor: "start", size: settings.fontSize, leading: 1, family: "Helvetica" });
-                    notchTextRight.x(settings.innerDiameter + settings.notchWidth * 2.5);
-                    notchTextRight.cy(row.absoluteDepth);
-                    clearableShapes.push(notchTextRight);
-
-                    // Left-side notches
-                    if (row.height > 0) {
-                        var notchLeft = draw.polyline([[settings.notchWidth, 0], [0, 1], [0, row.height - 1], [settings.notchWidth, row.height]]);
-                        notchLeft.move(-settings.notchWidth * 2, row.absoluteDepth);
-                        notchLeft.fill("none").stroke({ color: "black", width: 1 });
-                        clearableShapes.push(notchLeft);
+                    if (row.flag != "unsplit") {
+                        // Right-side notches -- Relative measurements
+                        var str1 = formatMeasurement(row["relative" + settings.direction]);
+                        addText(str1, "", settings.innerDiameter + settings.notchWidth * 2.25, row.absoluteDepth, "start");
+                        if (!settings.notchGapLayers.includes(row.label)) {
+                            addMarking(settings.innerDiameter + settings.notchWidth, row.absoluteDepth, notchPoints);
+                        }
                         
-                        var notchValueLeft = settings.feetInches ? inchesToFeetInches(row.height) : parseFloat(row.height.toFixed(4)) + "\"";
-                        var notchTextLeft = draw.text(notchValueLeft);
-                        notchTextLeft.x(-settings.notchWidth * 2.5); // Order matters for some reason; different from right-side notches!
-                        notchTextLeft.font({ anchor: "end", size: settings.fontSize, leading: 1, family: "Helvetica" });
-                        notchTextLeft.cy(row.absoluteDepth + row.height / 2);
-                        notchTextLeft.rebuild(true);
-                        clearableShapes.push(notchTextLeft);
+                        // Right-side notches -- Absolute measurements
+                        str1 = formatMeasurement(row["absolute" + settings.direction] - settings.referenceLineOffset);
+                        addText(str1, "", settings.innerDiameter + settings.notchWidth * 6.25, row.absoluteDepth, "start");
+                        addMarking(settings.innerDiameter + settings.notchWidth * 5, row.absoluteDepth, notchPoints);
+                    }
+
+                    // Left-side notches -- Heights & other data
+                    if (row.height > 0 && visibleSplit) {
+                        var str1 = "[ " + formatMeasurement(row.height) + " ]";
+                        var str2 = "";
+                        if (material != undefined) {
+                            str2 = ` ${row.volume.toFixed(settings.decimals).padStart(5 + settings.decimals, " ")} ft3 × ${material.bulkDensity.toFixed(settings.decimals)} lb/ft3 ≈ ${row.mass.toFixed(settings.decimals)} lb`;
+                        }
+                        addText(str1, str2, -settings.notchWidth * 2.5, row.absoluteDepth + row.height / 2, "end", wrap, true, false);
+                        addMarking(-settings.notchWidth * 2, row.absoluteDepth, leftBracketPoints);
                     }
                 }
                 
@@ -523,9 +590,9 @@ Catalyst 2,38.1,200,lb
                 //============================================//
                 
                 // Draw reference line
-                if (isAbsolute && settings.referenceLineOffset > 0) {
+                if (settings.referenceLineOffset > 0) {
                     var referenceLine = draw.line(0, 0, settings.innerDiameter, 0);
-                    referenceLine.move(0, isDepth ? settings.referenceLineOffset : shellHeight - settings.referenceLineOffset);
+                    referenceLine.move(0, settings.direction == "Depth" ? settings.referenceLineOffset : shellHeight - settings.referenceLineOffset);
                     referenceLine.stroke({ color: "black", width: 2 });
                     referenceLine.insertBefore(mask);
                     clearableShapes.push(referenceLine);
@@ -534,17 +601,34 @@ Catalyst 2,38.1,200,lb
                 // Add document info
                 var currentDate = new Date();
                 var month = currentDate.toLocaleString("default", { month: "short" });
-                var docInfo = draw.text(add => {
-                    add.tspan(settings.equipmentTag).font({ weight: "bold" });
-                    add.tspan("Loading Diagram").font({ weight: "bold" }).newLine();
-                    add.tspan(month + ". " + currentDate.getFullYear()).newLine();
+                var sock, dense;
+                docInfo.text(add => {
+                    add.tspan(settings.equipmentTag).font({ size: 14, weight: "bold" });
+                    add.tspan("Loading Diagram").font({ size: 14, weight: "bold" }).newLine();
+                    add.tspan(month + ". " + currentDate.getFullYear()).font({ size: 14 }).newLine();
                     add.tspan("").newLine();
                     add.tspan(`ID: ${inchesToFeetInches(settings.innerDiameter)} = ${settings.innerDiameter}"`).newLine();
                     add.tspan(`TT: ${inchesToFeetInches(settings.tanToTan)} = ${settings.tanToTan}"`).newLine();
+                    add.tspan("").newLine();
+                    add.tspan("All layers sock loaded").newLine();
+                    add.tspan("unless specified.").newLine();
+                    add.tspan("").newLine();
+                    sock = add.tspan("Sock loaded:").dx(-10).newLine();
+                    dense = add.tspan("Dense loaded:").dx(-10).newLine();
                 });
-                docInfo.x(draw.width() - settings.marginRight + settings.marginLeft);
-                docInfo.font({ anchor: "middle", size: 14, family: "Helvetica" });
-                clearableShapes.push(docInfo);
+                docInfo.font({ anchor: "middle", size: 10, family: "Helvetica" });
+                docInfo.cx(settings.innerDiameter + settings.marginRight - docInfo.bbox().width / 2);
+                
+                // var bbox = draw.rect(docInfo.bbox().width, docInfo.bbox().height);
+                // bbox.move(docInfo.bbox().x, docInfo.bbox().y);
+                // bbox.fill("none").stroke("black");
+
+                // Add legend
+                sample1.center(sock.bbox().x2 + 10, sock.bbox().cy);
+                sample1.fill("white").stroke("black");
+
+                sample2.center(dense.bbox().x2 + 10, dense.bbox().cy);
+                sample2.fill(hatchPattern("white")).stroke("black");
 
                 updateDraggability();
             }
@@ -583,7 +667,7 @@ Catalyst 2,38.1,200,lb
             });
             function updateDraggability() {
                 var shapesDraggable = document.getElementById("shapesDraggable").checked;
-                clearableShapes.forEach(x => {
+                [docInfo, sample1, sample2].concat(clearableShapes).forEach(x => {
                     if (shapesDraggable) {
                         x.draggable(true);
                         x.attr({ style: "cursor: move"});
@@ -601,6 +685,7 @@ Catalyst 2,38.1,200,lb
             document.getElementById("headWidthToHeightRatio").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("topFlangeHeight").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("outletCollectorHeight").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("outletCollectorDiameter").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("layerData").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("materialData").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("zeroLayers").addEventListener("input", e => requiresReprocessData = true);
