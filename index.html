@@ -83,24 +83,24 @@
             <textarea id="layerData" spellcheck="false" rows="4">Bed 1 Hardware,1' 4",grey
 Bed 1 Gap,1' 5",transparent
 1/4" Inert Balls,6",cornflowerblue
-Catalyst 1,5' 5",gold
+Catalyst 1 DENSE LOAD,5' 5",gold
 Catalyst 2,10' 1",tomato
 1/4" Inert Balls,6",cornflowerblue
 Bed 2 Hardware,7' 8",grey
 Bed 2 Gap,1' 5",none
 1/4" Inert Balls,6",cornflowerblue
-Catalyst 1,5' 5",gold
+Catalyst 1 DENSE LOAD,5' 5",gold
 Catalyst 2,10' 1",tomato
 Bed 3 Hardware,7' 8",grey
 Bed 3 Gap,1' 5",none
 1/4" Inert Balls,6",cornflowerblue
-Catalyst 1,5' 5",gold
+Catalyst 1 DENSE LOAD,5' 5",gold
 Catalyst 2,10' 1",tomato
 1/4" Inert Balls,6",cornflowerblue
 1" Inert Balls,3' 6",cornflowerblue</textarea>
             <h3>CSV Material Data</h3>
             Columns: Material Name, Bulk Density (lb/ft3), Qty/Pkg, UoM (lb or ft3), Pkg Type, Load Method<br>
-            <textarea id="materialData" spellcheck="false" rows="4">Catalyst 1,40.2,200,lb,drum,Dense
+            <textarea id="materialData" spellcheck="false" rows="4">Catalyst 1 DENSE LOAD,40.2,200,lb,drum,Dense
 Catalyst 2,38.1,200,lb,drum,Sock
 1/4" Inert Balls,75.3,25,ft3,bag,Sock
 1" Inert Balls,75.3,25,ft3,bag,Sock</textarea>
@@ -127,11 +127,11 @@ Catalyst 2,38.1,200,lb,drum,Sock
             
             <br>
             List of zero-outage reference layers:<br>
-            <textarea id="zeroLayers" spellcheck="false" rows="1">Bed 2 Gap, Bed 3 Gap</textarea>
+            <textarea id="zeroLayers" spellcheck="false" rows="1">Bed 1 Gap, Bed 2 Gap, Bed 3 Gap</textarea>
             <br>
             <br>
             List of notch gap layers:<br>
-            <textarea id="notchGapLayers" spellcheck="false" rows="1">Bed 2 Hardware, Bed 3 Hardware</textarea>
+            <textarea id="gapLayers" spellcheck="false" rows="1">Bed 1 Hardware, Bed 2 Hardware, Bed 3 Hardware</textarea>
             
             <h3>File</h3>
             <label for="equipmentTag">Equipment Tag: </label><input type="text" id="equipmentTag" value="AA-R-000"><br>
@@ -150,6 +150,26 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 <label for="notchWidth">Notch Width (px): </label><input type="number" id="notchWidth" min="0" value="10"><br>
                 <br>
                 <label for="shapesDraggable">Shapes Draggable: </label><input type="checkbox" id="shapesDraggable"> (Warning: Resets if updated)<br>
+                <br>
+                <p>
+                    Use curly brackets around variable names: name, height, volume.
+                </p>
+                <p>
+                    Any lines that contain the following variables will be displayed only if the layer has associated material data: mass, bulkDensity, numPkgs, pkgType, qtyPerPkg, qtyUoM, loadMethod
+                </p>
+                <p>
+                    Surround text with ** to bold it, like in Markdown.
+                </p>
+                <label for="minWrapHeight">Minimum height to wrap (px): </label><input type="number" id="minWrapHeight" min="0" value="15"><br>
+                <br>
+                Left notch data format:<br>
+                <textarea id="leftNotchDataFormat" spellcheck="false" rows="2">**[ {height} ]**
+ {volume} ft3 × {bulkDensity} ft3 ≈ {mass} lb</textarea>
+                <br>
+                <br>
+                Layer label data format:<br>
+                <textarea id="layerLabelDataFormat" spellcheck="false" rows="2">{name}
+ **[ {numPkgs} {pkgType}s × {qtyPerPkg} {qtyUoM} ]**</textarea>
             </details>
 
             <details>
@@ -184,7 +204,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 decimals: 0,
 
                 zeroLayers: ["Bed 2 Gap", "Bed 3 Gap"],
-                notchGapLayers: ["Bed 2 Hardware", "Bed 3 Hardware"],
+                gapLayers: ["Bed 2 Hardware", "Bed 3 Hardware"],
 
                 equipmentTag: "AA-R-000",
 
@@ -194,6 +214,10 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 marginTop: 10,
                 marginBottom: 10,
                 notchWidth: 10,
+
+                minWrapHeight: 15,
+                leftNotchDataFormat: "**[ {height} ]**\n {volume} ft3 × {bulkDensity} ft3 ≈ {mass} lb",
+                layerLabelDataFormat: "{name}\n **[ {numPkgs} {pkgType}s × {qtyPerPkg} {qtyUoM} ]**",
             };
 
             // Parameters to be calculated from settings
@@ -205,6 +229,9 @@ Catalyst 2,38.1,200,lb,drum,Sock
                     if (input != null) {
                         if (input.type == "checkbox") {
                             settings[key] = input.checked;
+                        }
+                        else if (input.id == "leftNotchDataFormat" || input.id == "layerLabelDataFormat") {
+                            settings[key] = input.value.split("\n");
                         }
                         else if (input.tagName == "TEXTAREA") {
                             settings[key] = input.value.replaceAll(/,\s+/g, ",").split(",");
@@ -243,14 +270,17 @@ Catalyst 2,38.1,200,lb,drum,Sock
             // Utility Functions
             //============================================//
 
-            function inchesToFeetInches(x) {
-                var feet = Math.trunc(x / 12);
-                var inches = parseFloat(Math.abs(x % 12).toFixed(settings.decimals));
-                if (feet > 0 && inches == 0) return feet + "\'";
-                if (feet == 0 && inches >= 0) return inches + "\"";
-                else return feet + "\' " + inches + "\"";
-            }   
-            function feetInchesToInches(str) {
+            function formatMeasurement(x, feetInches=settings.feetInches) {
+                if (feetInches) {
+                    var feet = Math.trunc(x / 12);
+                    var inches = parseFloat(Math.abs(x % 12).toFixed(settings.decimals));
+                    if (feet > 0 && inches == 0) return feet + "\'";
+                    if (feet == 0 && inches >= 0) return inches + "\"";
+                    else return feet + "\' " + inches + "\"";
+                }
+                else return parseFloat(x.toFixed(settings.decimals)) + "\"";
+            }
+            function parseMeasurement(str) {
                 if (str.search(/['"]/) != -1) {
                     var feet = str.match(/(\d+)'/);
                     feet = feet == null ? 0 : parseInt(feet[1]);
@@ -370,7 +400,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 for (var line of splitLines) {
                     if (line == "") continue;
                     line = line.split(",");
-                    var layerHeight = feetInchesToInches(line[1]);
+                    var layerHeight = parseMeasurement(line[1]);
                     var material = materialData[line[0]];
                     
                     absoluteElevation += layerHeight;
@@ -384,7 +414,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 // Fill the remaining space on top
                 var remainingSpace = reactorHeight - absoluteElevation;
                 if (remainingSpace > 0) {
-                    addLayer(undefined, "Remaining Space", remainingSpace, "none", absoluteElevation + remainingSpace, relativeElevation + remainingSpace, "full");
+                    addLayer(undefined, "", remainingSpace, "none", absoluteElevation + remainingSpace, relativeElevation + remainingSpace, "full");
                 }
 
                 layerData.reverse();
@@ -479,22 +509,39 @@ Catalyst 2,38.1,200,lb,drum,Sock
                         add.line(0, 0, hatchSize, hatchSize).stroke({ color: "black", width: 0.5 });
                     });
                 }
-                function formatMeasurement(value) {
-                    if (settings.feetInches) return inchesToFeetInches(value);
-                    else return parseFloat(value.toFixed(settings.decimals)) + "\"";
+                function addPlainText(str, x, cy, anchor) {
+                    var text = draw.text(str);
+                    text.font({ anchor: anchor, size: settings.fontSize, leading: 1.2, family: "Helvetica" });
+                    text.dx(x); // x() does not work with anchor: "end"
+                    text.cy(cy);
+                    clearableShapes.push(text);
+                    return text;
                 }
-                function addText(str1, str2, x, cy, anchor, wrap=false, bold1=false, bold2=false) {
-                    var text = draw.text(add => {
-                        var tspan1 = add.tspan(str1);
-                        if (bold1) tspan1.font({ weight: "bold" });
+                function addFormattedText(lines, x, cy, anchor, wrap, primaryLookup, secondaryLookup) {
+                    for (var [key, value] of Object.entries(primaryLookup)) {
+                        lines = lines.map(e => e.replaceAll("{" + key + "}", value));
+                    }
+                    for (var [key, value] of Object.entries(secondaryLookup)) {
+                        lines = lines.map(e => e.replaceAll("{" + key + "}", value));
+                    }
+                    lines = lines.filter(e => !e.includes("{")); // If any remaining unparsed variables, they must be secondary variables
 
-                        if (str2 != "") {
-                            var tspan2 = add.tspan(str2);
-                            if (wrap) tspan2.newLine();
-                            if (bold2) tspan2.font({ weight: "bold" });
+                    lines = lines.map(e => e.split("**"));
+                    var text = draw.text(add => {
+                        for (line of lines) {
+                            var currBold = false;
+                            var tspan;
+                            for (var segment of line) {
+                                if (segment != "") {
+                                    tspan = add.tspan(segment);
+                                    if (currBold) tspan.font({ weight: "bold" });
+                                    if (wrap && segment == line[0]) tspan.newLine();
+                                }
+                                currBold = !currBold;
+                            }
                         }
                     });
-                    text.font({ anchor: anchor, size: settings.fontSize, leading: 1.2, family: "Helvetica" });
+                    text.font({ anchor: anchor, size: settings.fontSize, leading: 1, family: "Helvetica" });
                     text.dx(x); // x() does not work with anchor: "end"
                     text.cy(cy);
                     clearableShapes.push(text);
@@ -511,10 +558,11 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 // Draw Layers
                 //============================================//
 
+                var isGapAbove = true;
                 for (var row of layerData) {
                     // Useful variables
                     const visibleSplit = settings.splitLayers ? row.flag != "unsplit" : row.flag != "above" && row.flag != "below";
-                    const wrap = row.height >= settings.fontSize * 2.5;
+                    const wrap = row.height >= settings.minWrapHeight;
                     const material = materialData[row.label];
                     const notchPoints = [[0, 0], [settings.notchWidth, 0], [settings.notchWidth / 2, 0], [settings.notchWidth / 2, row.height], [settings.notchWidth, row.height], [0, row.height]];
                     const leftBracketPoints = [[settings.notchWidth, 0], [0, 1], [0, row.height - 1], [settings.notchWidth, row.height]];
@@ -540,15 +588,27 @@ Catalyst 2,38.1,200,lb,drum,Sock
                         clearableShapes.push(border);
                     }
 
+                    var primaryLookup = {
+                        name: row.label,
+                        height: formatMeasurement(row.height),
+                        volume: row.volume.toFixed(settings.decimals),
+                    };
+                    var secondaryLookup = {};
+                    if (material != undefined) {
+                        secondaryLookup = {
+                            mass: row.mass.toFixed(settings.decimals),
+                            bulkDensity: material.bulkDensity.toFixed(settings.decimals),
+                            numPkgs: Math.ceil(row.numPkgs * 10**settings.decimals) / 10**settings.decimals,
+                            pkgType: material.pkgType,
+                            qtyPerPkg: material.qtyPerPkg.toFixed(settings.decimals),
+                            qtyUoM: material.qtyUoM,
+                            loadMethod: material.loadMethod,
+                        };
+                    }
+
                     // Write text within layer
                     if (row.label != "" && visibleSplit) {
-                        var str1 = row.label;
-                        var str2 = "";
-                        if (material != undefined) {
-                            if (material.loadMethod == "Dense") str1 += " DENSE LOAD";
-                            str2 = ` [ ${settings.decimals > 0 ? row.numPkgs.toFixed(settings.decimals) : Math.ceil(row.numPkgs) } ${material.pkgType}s × ${material.qtyPerPkg} ${material.qtyUoM} ]`;
-                        }
-                        var text = addText(str1, str2, 0, row.absoluteDepth + row.height / 2 + 0.5, "middle", wrap, false, true).cx(settings.innerDiameter / 2);
+                        var text = addFormattedText(settings.layerLabelDataFormat, 0, row.absoluteDepth + row.height / 2 + 0.5, "middle", wrap, primaryLookup, secondaryLookup).cx(settings.innerDiameter / 2);
                         if (material != undefined && material.loadMethod == "Dense") {
                             var highlight = draw.rect(text.bbox().width + 5, text.bbox().height + 5);
                             highlight.center(text.bbox().cx, text.bbox().cy);
@@ -561,26 +621,24 @@ Catalyst 2,38.1,200,lb,drum,Sock
 
                     if (row.flag != "unsplit") {
                         // Right-side notches -- Relative measurements
-                        var str1 = formatMeasurement(row["relative" + settings.direction]);
-                        addText(str1, "", settings.innerDiameter + settings.notchWidth * 2.25, row.absoluteDepth, "start");
-                        if (!settings.notchGapLayers.includes(row.label)) {
+                        const isGap = row.label == "" || settings.gapLayers.includes(row.label);
+                        if (!isGapAbove || !isGap) {
+                            addPlainText(formatMeasurement(row["relative" + settings.direction]), settings.innerDiameter + settings.notchWidth * 2.25, row.absoluteDepth, "start");
+                        }
+                        if (!isGap) {
                             addMarking(settings.innerDiameter + settings.notchWidth, row.absoluteDepth, notchPoints);
                         }
                         
                         // Right-side notches -- Absolute measurements
-                        str1 = formatMeasurement(row["absolute" + settings.direction] - settings.referenceLineOffset);
-                        addText(str1, "", settings.innerDiameter + settings.notchWidth * 6.25, row.absoluteDepth, "start");
+                        addPlainText(formatMeasurement(row["absolute" + settings.direction] - settings.referenceLineOffset), settings.innerDiameter + settings.notchWidth * 6.25, row.absoluteDepth, "start");
                         addMarking(settings.innerDiameter + settings.notchWidth * 5, row.absoluteDepth, notchPoints);
+                        
+                        isGapAbove = isGap;
                     }
 
                     // Left-side notches -- Heights & other data
                     if (row.height > 0 && visibleSplit) {
-                        var str1 = "[ " + formatMeasurement(row.height) + " ]";
-                        var str2 = "";
-                        if (material != undefined) {
-                            str2 = ` ${row.volume.toFixed(settings.decimals).padStart(5 + settings.decimals, " ")} ft3 × ${material.bulkDensity.toFixed(settings.decimals)} lb/ft3 ≈ ${row.mass.toFixed(settings.decimals)} lb`;
-                        }
-                        addText(str1, str2, -settings.notchWidth * 2.5, row.absoluteDepth + row.height / 2, "end", wrap, true, false);
+                        addFormattedText(settings.leftNotchDataFormat, -settings.notchWidth * 2.5, row.absoluteDepth + row.height / 2, "end", wrap, primaryLookup, secondaryLookup);
                         addMarking(-settings.notchWidth * 2, row.absoluteDepth, leftBracketPoints);
                     }
                 }
@@ -601,14 +659,16 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 // Add document info
                 var currentDate = new Date();
                 var month = currentDate.toLocaleString("default", { month: "short" });
+                var crossSectionalArea = Math.PI * settings.innerDiameter**2 / 4 / 144;
                 var sock, dense;
                 docInfo.text(add => {
-                    add.tspan(settings.equipmentTag).font({ size: 14, weight: "bold" });
+                    add.tspan(settings.equipmentTag).font({ size: 14, weight: "bold" }).newLine();
                     add.tspan("Loading Diagram").font({ size: 14, weight: "bold" }).newLine();
                     add.tspan(month + ". " + currentDate.getFullYear()).font({ size: 14 }).newLine();
                     add.tspan("").newLine();
-                    add.tspan(`ID: ${inchesToFeetInches(settings.innerDiameter)} = ${settings.innerDiameter}"`).newLine();
-                    add.tspan(`TT: ${inchesToFeetInches(settings.tanToTan)} = ${settings.tanToTan}"`).newLine();
+                    add.tspan(`ID: ${formatMeasurement(settings.innerDiameter, true)} = ${settings.innerDiameter}"`).newLine();
+                    add.tspan(`TT: ${formatMeasurement(settings.tanToTan, true)} = ${settings.tanToTan}"`).newLine();
+                    add.tspan(`Aₓ: ${crossSectionalArea.toFixed(2)} ft²`).newLine();
                     add.tspan("").newLine();
                     add.tspan("All layers sock loaded").newLine();
                     add.tspan("unless specified.").newLine();
@@ -656,7 +716,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 URL.revokeObjectURL(url);
             });
             document.getElementById("restoreSettings").addEventListener("click", e => {
-                settings = JSON.parse(document.getElementById("settingsJSON").value);
+                Object.assign(settings, JSON.parse(document.getElementById("settingsJSON").value));
                 setInputs();
                 requiresReprocessData = true;
                 update();
@@ -689,7 +749,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
             document.getElementById("layerData").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("materialData").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("zeroLayers").addEventListener("input", e => requiresReprocessData = true);
-            document.getElementById("notchGapLayers").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("gapLayers").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("splitLayers").addEventListener("input", e => requiresReprocessData = true);
         </script>
     </body>
