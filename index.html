@@ -256,6 +256,9 @@ Catalyst 2,38.1,200,lb,drum,Sock
                         if (input.type == "checkbox") {
                             input.checked = settings[key];
                         }
+                        else if (input.id == "leftNotchDataFormat" || input.id == "layerLabelDataFormat") {
+                            input.value = settings[key].join("\n");
+                        }
                         else if (input.tagName == "TEXTAREA") {
                             input.value = settings[key].join(", ");
                         }
