@@ -601,7 +601,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
                         secondaryLookup = {
                             mass: row.mass.toFixed(settings.decimals),
                             bulkDensity: material.bulkDensity.toFixed(settings.decimals),
-                            numPkgs: Math.ceil(row.numPkgs * 10**settings.decimals) / 10**settings.decimals,
+                            numPkgs: Math.round(row.numPkgs * 10**settings.decimals) / 10**settings.decimals,
                             pkgType: material.pkgType,
                             qtyPerPkg: material.qtyPerPkg.toFixed(settings.decimals),
                             qtyUoM: material.qtyUoM,
