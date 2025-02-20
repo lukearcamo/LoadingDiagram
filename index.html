@@ -124,6 +124,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
             <label for="feetInches">ft' in": </label><input type="checkbox" id="feetInches" checked><br>
             <label for="splitLayers">Split layers: </label><input type="checkbox" id="splitLayers" checked> (e.g. tan. lines, outlet collector)<br>
             <label for="decimals">Round to number of decimals: </label><input type="number" id="decimals" value="0" step="1"><br>
+            <label for="numPkgsDecimals">Round numPkgs to number of decimals: </label><input type="number" id="numPkgsDecimals" value="1" step="1"><br>
             
             <br>
             List of zero-outage reference layers:<br>
@@ -202,6 +203,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 feetInches: true,
                 splitLayers: false,
                 decimals: 0,
+                numPkgsDecimals: 1,
 
                 zeroLayers: ["Bed 2 Gap", "Bed 3 Gap"],
                 gapLayers: ["Bed 2 Hardware", "Bed 3 Hardware"],
@@ -601,7 +603,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
                         secondaryLookup = {
                             mass: row.mass.toFixed(settings.decimals),
                             bulkDensity: material.bulkDensity.toFixed(settings.decimals),
-                            numPkgs: Math.round(row.numPkgs * 10**settings.decimals) / 10**settings.decimals,
+                            numPkgs: Math.round(row.numPkgs * 10**settings.numPkgsDecimals) / 10**settings.numPkgsDecimals,
                             pkgType: material.pkgType,
                             qtyPerPkg: material.qtyPerPkg.toFixed(settings.decimals),
                             qtyUoM: material.qtyUoM,
