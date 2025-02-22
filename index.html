@@ -277,6 +277,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
 
             function formatMeasurement(x, feetInches=settings.feetInches) {
                 if (feetInches) {
+                    x = Math.round(x * 10**settings.decimals) / 10**settings.decimals;
                     var feet = Math.trunc(x / 12);
                     var inches = parseFloat(Math.abs(x % 12).toFixed(settings.decimals));
                     if (feet > 0 && inches == 0) return feet + "\'";
