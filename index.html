@@ -670,7 +670,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
                 docInfo.text(add => {
                     add.tspan(settings.equipmentTag).font({ size: 14, weight: "bold" }).newLine();
                     add.tspan("Loading Diagram").font({ size: 14, weight: "bold" }).newLine();
-                    add.tspan(month + ". " + currentDate.getFullYear()).font({ size: 14 }).newLine();
+                    add.tspan(month + ". " + currentDate.getDate() + ", " + currentDate.getFullYear()).font({ size: 14 }).newLine();
                     add.tspan("").newLine();
                     add.tspan(`ID: ${formatMeasurement(settings.innerDiameter, true)} = ${settings.innerDiameter}"`).newLine();
                     add.tspan(`TT: ${formatMeasurement(settings.tanToTan, true)} = ${settings.tanToTan}"`).newLine();
