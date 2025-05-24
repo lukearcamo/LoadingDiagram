@@ -237,6 +237,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
                         }
                         else if (input.tagName == "TEXTAREA") {
                             settings[key] = input.value.replaceAll(/,\s+/g, ",").split(",");
+                            if (settings[key].length == 1 && settings[key][0] == "") settings[key] = [];
                         }
                         else if (input.type == "number" || key == "headWidthToHeightRatio") {
                             settings[key] = parseFloat(input.value);
@@ -747,11 +748,13 @@ Catalyst 2,38.1,200,lb,drum,Sock
             document.getElementById("shapesDraggable").addEventListener("click", updateDraggability);
 
             // Parameters that require data reprocessing when updated:
+            document.getElementById("innerDiameter").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("tanToTan").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("headWidthToHeightRatio").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("topFlangeHeight").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("outletCollectorHeight").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("outletCollectorDiameter").addEventListener("input", e => requiresReprocessData = true);
+            
             document.getElementById("layerData").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("materialData").addEventListener("input", e => requiresReprocessData = true);
             document.getElementById("zeroLayers").addEventListener("input", e => requiresReprocessData = true);
