@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Loading Diagram Generator (Horizontal)</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2/dist/svg.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.draggable.js@3.0.4/dist/svg.draggable.js"></script>
+    </head>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+            margin-bottom: 100px;
+            gap: 50px;
+        }
+        #UI {
+            width: 500px;
+            font-family: "Trebuchet MS", Helvetica, sans-serif;
+            font-size: 14px;
+        }
+        h3 {
+            margin-bottom: 0;
+        }
+        label {
+            display: inline-block;
+            width: 50%;
+        }
+        input[type="number"], input[type="text"], select {
+            width: 50%;
+            box-sizing: border-box;
+        }
+        textarea {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        input[type="checkbox"] {
+            display: inline-block;
+            vertical-align: middle;
+        }
+        button {
+            margin-top: 20px;
+        }
+        details {
+            margin-top: 1.17em;
+        }
+        summary > h3 {
+            margin: 0;
+            display: inline;
+        }
+    </style>
+    <body>
+        <div id="UI">
+            <h1>Loading Diagram Generator (Horizontal)</h1>
+            Switch to <a href="/">vertical</a> vessel
+            <details>
+                <summary><h3>About</h3></summary>
+                <p>
+                    <b>Purpose/Scope:</b>
+                    Automatically generate a to-scale vessel loading diagram without building from scratch using shapes in an image editor.
+                    The only important data required are the vessel dimensions and the heights of each layer;
+                    elevations/depths are automatically calculated.
+                    All other settings are related to graphical/data formatting.
+                </p>
+                <p>
+                    <b>Usage:</b> Collect layers and materials data in a spreadsheet, following the column format specified below.
+                    Save as .csv, then copy and paste raw data into text boxes below.
+                    Each time settings are modified, click Update Drawing to generate SVG image.
+                    Download .svg, open in browser to view/print, or make adjustments first in Visio if needed.
+                </p>
+                <p>
+                    <b>Privacy Policy:</b> All calculations are done locally, no data is collected on any server.
+                </p>
+                <p>
+                    Copyright (c) 2024 Luke Arcamo, released under MIT license.
+                    <a href="https://github.com/svgdotjs/svg.js">SVG.js</a> v3.2 is the only dependency, also released under MIT license.
+                </p>
+                <p>
+                    Check out <a href="https://github.com/lukearcamo">my GitHub page</a> if you would like to modify the code for finer customization or provide feedback/feature suggestions.
+                </p>
+            </details>
+            <h3>CSV Layer Data</h3>
+            Columns: Material Name, Height (in" or ft' in"), Color (#hex or <a href="https://www.w3schools.com/cssref/css_colors.php">CSS name</a>)<br>
+            <textarea id="layerData" spellcheck="false" rows="4">Bed 1 Hardware,1' 4",grey
+Bed 1 Gap,1' 5",transparent
+Catalyst 1 DENSE LOAD,5' 5",gold
+Catalyst 2,10' 1",tomato
+1/4" Inert Balls,6",cornflowerblue
+1" Inert Balls,3' 6",cornflowerblue</textarea>
+            <h3>CSV Material Data</h3>
+            Columns: Material Name, Bulk Density (lb/ft3), Qty/Pkg, UoM (lb or ft3), Pkg Type, Load Method<br>
+            <textarea id="materialData" spellcheck="false" rows="4">Catalyst 1 DENSE LOAD,40.2,200,lb,drum,Dense
+Catalyst 2,38.1,200,lb,drum,Sock
+1/4" Inert Balls,75.3,25,ft3,bag,Sock
+1" Inert Balls,75.3,25,ft3,bag,Sock</textarea>
+            <h3>Dimensions</h3>
+            <label for="innerDiameter">Inner Diameter (in): </label><input type="number" id="innerDiameter" min="0" value="300" step="0.0625"><br>
+            <label for="tanToTan">Tangent to Tangent (in): </label><input type="number" id="tanToTan" min="0" value="500" step="0.0625"><br>
+            <label for="headWidthToHeightRatio">Head Shape: </label><select name="headWidthToHeightRatio" id="headWidthToHeightRatio">
+                <option value="1">Hemispherical</option>
+                <option value="2">Ellipsoidal 2:1</option>
+            </select><br>
+            <label for="topFlangeHeight">Top Flange Height (in): </label><input type="number" id="topFlangeHeight" min="0" value="40" step="0.0625"><br>
+
+            <h3>Markings</h3>
+            <label for="direction">Direction: </label><select name="direction" id="direction">
+                <option value="Depth">Depth</option>
+                <option value="Elevation">Elevation</option>
+            </select><br>
+            <label for="referenceLineOffset">Ref. Line (for abs. depth/elev.) (in): </label><input type="number" id="referenceLineOffset" value="-40" step="0.0625"><br>
+            <label for="feetInches">ft' in": </label><input type="checkbox" id="feetInches" checked><br>
+            <label for="splitLayers">Split layers: </label><input type="checkbox" id="splitLayers" checked> (e.g. tan. lines, outlet collector)<br>
+            <label for="decimals">Round to number of decimals: </label><input type="number" id="decimals" value="0" step="1"><br>
+            <label for="numPkgsDecimals">Round numPkgs to number of decimals: </label><input type="number" id="numPkgsDecimals" value="1" step="1"><br>
+            
+            <br>
+            List of zero-outage reference layers:<br>
+            <textarea id="zeroLayers" spellcheck="false" rows="1">Bed 1 Gap, Bed 2 Gap, Bed 3 Gap</textarea>
+            <br>
+            <br>
+            List of notch gap layers:<br>
+            <textarea id="gapLayers" spellcheck="false" rows="1">Bed 1 Hardware, Bed 2 Hardware, Bed 3 Hardware</textarea>
+            
+            <h3>File</h3>
+            <label for="equipmentTag">Equipment Tag: </label><input type="text" id="equipmentTag" value="AA-R-000"><br>
+            <button id="updateDrawing">Update Drawing</button>
+            <button id="downloadSVG">Download .svg</button>
+            
+            <details>
+                <summary><h3>Advanced Formatting</h3></summary>
+                <label for="fontSize">Font Size (px): </label><input type="number" id="fontSize" min="0" value="6"><br>
+                <br>
+                <label for="marginLeft">Margin Left (px): </label><input type="number" id="marginLeft" min="0" value="150"><br>
+                <label for="marginRight">Margin Right (px): </label><input type="number" id="marginRight" min="0" value="200"><br>
+                <label for="marginTop">Margin Top (px): </label><input type="number" id="marginTop" min="0" value="10"><br>
+                <label for="marginBottom">Margin Bottom (px): </label><input type="number" id="marginBottom" min="0" value="10"><br>
+                <br>
+                <label for="notchWidth">Notch Width (px): </label><input type="number" id="notchWidth" min="0" value="10"><br>
+                <br>
+                <label for="shapesDraggable">Shapes Draggable: </label><input type="checkbox" id="shapesDraggable"> (Warning: Resets if updated)<br>
+                <br>
+                <p>
+                    Use curly brackets around variable names: name, height, volume.
+                </p>
+                <p>
+                    Any lines that contain the following variables will be displayed only if the layer has associated material data: mass, bulkDensity, numPkgs, pkgType, qtyPerPkg, qtyUoM, loadMethod
+                </p>
+                <p>
+                    Surround text with ** to bold it, like in Markdown.
+                </p>
+                <label for="minWrapHeight">Minimum height to wrap (px): </label><input type="number" id="minWrapHeight" min="0" value="15"><br>
+                <br>
+                Left notch data format:<br>
+                <textarea id="leftNotchDataFormat" spellcheck="false" rows="2">**[ {height} ]**
+ {volume} ft3 × {bulkDensity} lb/ft3 ≈ {mass} lb</textarea>
+                <br>
+                <br>
+                Layer label data format:<br>
+                <textarea id="layerLabelDataFormat" spellcheck="false" rows="2">{name}
+ **[ {numPkgs} {pkgType}s × {qtyPerPkg} {qtyUoM} ]**</textarea>
+            </details>
+
+            <details>
+                <summary><h3>Save/Restore Settings</h3></summary>
+                Copy/paste JSON here:
+                <textarea id="settingsJSON" spellcheck="false" rows="4"></textarea>
+                <button id="restoreSettings">Restore settings from JSON</button>
+                <button id="saveSettings">Save settings to JSON</button>
+            </details>
+        </div>
+        <script>
+            //============================================//
+            // Define Parameters
+            //============================================//
+            
+            var layerData = [];
+            var materialData = {};
+            var requiresReprocessData = true;
+
+            var settings = {
+                innerDiameter: 300,
+                tanToTan: 500,
+                headWidthToHeightRatio: 1,
+                topFlangeHeight: 40,
+
+                direction: "Depth",
+                referenceLineOffset: -40,
+                feetInches: true,
+                splitLayers: false,
+                decimals: 0,
+                numPkgsDecimals: 1,
+
+                zeroLayers: ["Bed 1 Gap"],
+                gapLayers: ["Bed 1 Hardware"],
+
+                equipmentTag: "AA-R-000",
+
+                fontSize: 6,
+                marginLeft: 150,
+                marginRight: 200,
+                marginTop: 10,
+                marginBottom: 10,
+                notchWidth: 10,
+
+                minWrapHeight: 15,
+                leftNotchDataFormat: "**[ {height} ]**\n {volume} ft3 × {bulkDensity} lb/ft3 ≈ {mass} lb",
+                layerLabelDataFormat: "{name}\n **[ {numPkgs} {pkgType}s × {qtyPerPkg} {qtyUoM} ]**",
+            };
+
+            // Parameters to be calculated from settings
+            var headHeight, shellHeight, reactorHeight, maskThickness;
+
+            function getInputs() {
+                for (var key of Object.keys(settings)) {
+                    var input = document.getElementById(key);
+                    if (input != null) {
+                        if (input.type == "checkbox") {
+                            settings[key] = input.checked;
+                        }
+                        else if (input.id == "leftNotchDataFormat" || input.id == "layerLabelDataFormat") {
+                            settings[key] = input.value.split("\n");
+                        }
+                        else if (input.tagName == "TEXTAREA") {
+                            settings[key] = input.value.replaceAll(/,\s+/g, ",").split(",");
+                        }
+                        else if (input.type == "number" || key == "headWidthToHeightRatio") {
+                            settings[key] = parseFloat(input.value);
+                        }
+                        else {
+                            settings[key] = input.value;
+                        }
+                    }
+                }
+                headHeight = settings.innerDiameter / 2 / settings.headWidthToHeightRatio;
+                shellHeight = settings.tanToTan + headHeight * 2;
+                reactorHeight = settings.topFlangeHeight + settings.innerDiameter;
+                maskThickness = Math.sqrt(settings.innerDiameter**2 / 2) - settings.innerDiameter / 2;
+            }
+            function setInputs() {
+                for (var key of Object.keys(settings)) {
+                    var input = document.getElementById(key);
+                    if (input != null) {
+                        if (input.type == "checkbox") {
+                            input.checked = settings[key];
+                        }
+                        else if (input.id == "leftNotchDataFormat" || input.id == "layerLabelDataFormat") {
+                            input.value = settings[key].join("\n");
+                        }
+                        else if (input.tagName == "TEXTAREA") {
+                            input.value = settings[key].join(", ");
+                        }
+                        else {
+                            input.value = settings[key];
+                        }
+                    }
+                }
+            }
+
+            //============================================//
+            // Utility Functions
+            //============================================//
+
+            function formatMeasurement(x, feetInches=settings.feetInches) {
+                if (feetInches) {
+                    x = Math.round(x * 10**settings.decimals) / 10**settings.decimals;
+                    var feet = Math.trunc(x / 12);
+                    var inches = parseFloat(Math.abs(x % 12).toFixed(settings.decimals));
+                    if (feet > 0 && inches == 0) return feet + "\'";
+                    if (feet == 0 && inches >= 0) return inches + "\"";
+                    else return feet + "\' " + inches + "\"";
+                }
+                else return parseFloat(x.toFixed(settings.decimals)) + "\"";
+            }
+            function parseMeasurement(str) {
+                if (str.search(/['"]/) != -1) {
+                    var feet = str.match(/(\d+)'/);
+                    feet = feet == null ? 0 : parseInt(feet[1]);
+                    var inches = str.match(/([\d.]+)"/);
+                    inches = inches == null ? 0 : parseFloat(inches[1]);
+                }
+                else {
+                    return parseInt(str);
+                }
+                return feet * 12 + inches;
+            }
+            function cylinderVolume(h, d, length) { // UoM: in
+                var R = settings.innerDiameter / 2;
+                return R**2 * Math.acos(1 - h / R) - (R - h) * Math.sqrt(R**2 - (R - h)**2) * length / 1728; // UoM: ft3
+            }
+            // Source: https://www.vcalc.com/wiki/ellipsoid-cap-volume
+            function ellipsoidCapVolume(h) { // UoM: in
+                var a = headHeight;
+                var b = settings.innerDiameter / 2;
+                var c = b;
+                var x = c - h;
+                return Math.PI * a * b * (2 * c / 3 - x + x**3 / (3 * c**2)) / 1728; // UoM: ft3
+            }
+            function exactLayerVolume(absoluteElevation, layerHeight) {
+                var top = absoluteElevation;
+                var bottom = absoluteElevation - layerHeight;
+
+                var volume = 0;
+
+                var largeCyl = cylinderVolume(top, settings.innerDiameter, settings.tanToTan);
+                var smallCyl = cylinderVolume(bottom, settings.innerDiameter, settings.tanToTan);
+                var largeCap = ellipsoidCapVolume(top);
+                var smallCap = ellipsoidCapVolume(bottom);
+                volume = largeCyl - smallCyl + largeCap - smallCap;
+
+                return volume;
+            }
+
+            //============================================//
+            // Process Data Before Rendering
+            //============================================//
+
+            var splitElevations = [];
+            
+            function addLayer(material, label, layerHeight, color, absoluteElevation, relativeElevation, flag) {
+                var mass, numPkgs;
+
+                if (absoluteElevation > splitElevations[0]) {
+                    var heightAbove = absoluteElevation - splitElevations[0];
+                    var heightBelow = layerHeight - heightAbove;
+                    if (heightBelow > 0) {
+                        addLayer(material, label, heightBelow, color, absoluteElevation - heightAbove, relativeElevation - heightAbove, "below");
+                    }
+
+                    splitElevations.shift();
+                    
+                    if (heightAbove > 0) {
+                        addLayer(material, label, heightAbove, color, absoluteElevation, relativeElevation, "above");
+                    }
+
+                    addLayer(material, label, layerHeight, color, absoluteElevation, relativeElevation, "unsplit"); // splitElevations has shifted out by this point
+                }
+                else {
+                    var volume = exactLayerVolume(absoluteElevation, layerHeight);
+                    if (material != undefined) {
+                        mass = volume * material.bulkDensity;
+                        numPkgs = (material.qtyUoM == "lb" ? mass : volume) / material.qtyPerPkg;
+                    }
+
+                    layerData.push({
+                        height: layerHeight,
+                        absoluteElevation: absoluteElevation,
+                        relativeElevation: relativeElevation,
+                        label, color, 
+                        volume, mass, numPkgs,
+                        flag,
+                    });
+                }
+            }
+            function processData() {
+                // Follow up: What other internals are there in horizontal reactors?
+                splitElevations = [settings.innerDiameter]; // Must be in order, lowest to highest
+
+                materialData = {};
+                var splitLines = document.getElementById("materialData").value.split("\n");
+                for (var line of splitLines) {
+                    if (line == "") continue;
+                    line = line.split(",");
+                    materialData[line[0]] = {
+                        bulkDensity: parseFloat(line[1]),
+                        qtyPerPkg: parseFloat(line[2]),
+                        qtyUoM: line[3],
+                        pkgType: line[4],
+                        loadMethod: line[5] != undefined ? line[5] : "Sock",
+                    };
+                }
+
+                layerData = []; // Clear layerData
+                splitLines = document.getElementById("layerData").value.split("\n");
+                splitLines.reverse();
+
+                var absoluteElevation = 0;
+                var relativeElevation = 0;
+
+                // Calculate absolute/relative elevation first
+                for (var line of splitLines) {
+                    if (line == "") continue;
+                    line = line.split(",");
+                    var layerHeight = parseMeasurement(line[1]);
+                    var material = materialData[line[0]];
+                    
+                    absoluteElevation += layerHeight;
+                    relativeElevation += layerHeight;
+
+                    if (settings.zeroLayers.includes(line[0])) relativeElevation = 0;
+
+                    addLayer(material, line[0], layerHeight, line[2], absoluteElevation, relativeElevation, "full");
+                }
+
+                // Fill the remaining space on top
+                var remainingSpace = settings.innerDiameter + settings.topFlangeHeight - absoluteElevation;
+                if (remainingSpace > 0) {
+                    addLayer(undefined, "", remainingSpace, "none", absoluteElevation + remainingSpace, relativeElevation + remainingSpace, "full");
+                }
+
+                layerData.reverse();
+
+                // Add bottommost notch label:
+                addLayer(undefined, "", 0, "none", 0, 0, "full");
+
+                // Calculate absolute/relative depth
+                var relativeDepth = 0;
+                for (var row of layerData) {
+                    // row.absoluteDepth = shellHeight - row.absoluteElevation;
+                    row.absoluteDepth = settings.innerDiameter - row.absoluteElevation;
+                    if (settings.zeroLayers.includes(row.label)) relativeDepth = 0;
+                    row.relativeDepth = relativeDepth;
+                    if (row.flag != "unsplit") relativeDepth += row.height;
+                }
+            }
+            
+            //============================================//
+            // Initialize Drawing
+            //============================================//
+
+            const draw = SVG().addTo('body').insertBefore("#UI");
+            var mask = draw.rect(100, 100);
+            var outline = draw.rect(100, 100);
+            var topFlange = draw.rect(100, 100);
+            var docInfo = draw.text("Placeholder");
+            var sample1 = draw.rect(10, 10);
+            var sample2 = draw.rect(10, 10);
+
+            const clearableShapes = [];
+
+            function update() {
+                //============================================//
+                // Obtain Parameters from GUI
+                //============================================//
+                getInputs();
+                if (requiresReprocessData) {
+                    requiresReprocessData = false;
+                    processData();
+                }
+
+                //============================================//
+                // Apply Reactor Dimensions
+                //============================================//
+
+                var totalLayersHeight = layerData[0].absoluteElevation;
+                draw.size(
+                    headHeight * 2 + settings.tanToTan + settings.marginLeft + settings.marginRight,
+                    Math.max(totalLayersHeight, reactorHeight) + settings.marginTop + settings.marginBottom
+                );
+                draw.viewbox(
+                    -settings.marginLeft,
+                    settings.innerDiameter - Math.max(totalLayersHeight, reactorHeight) - settings.marginTop,
+                    draw.width(),
+                    draw.height()
+                );
+
+                mask.size(shellHeight + maskThickness, settings.innerDiameter + maskThickness);
+                mask.move(-maskThickness / 2, -maskThickness / 2);
+                mask.radius(headHeight + maskThickness / 2, settings.innerDiameter / 2 + maskThickness / 2);
+                mask.stroke({ color: "white", width: maskThickness });
+                mask.fill("none");
+
+                outline.size(shellHeight, settings.innerDiameter);
+                outline.radius(headHeight, settings.innerDiameter / 2);
+                outline.stroke({ color: "black", width: 1 });
+                outline.fill("none");
+                
+                // Follow up: Is there still a top flange through which you load material from?
+                topFlange.size(settings.topFlangeHeight, settings.topFlangeHeight);
+                topFlange.cx(shellHeight / 2);
+                topFlange.y(-settings.topFlangeHeight);
+                topFlange.stroke({ color: "black", width: 1 });
+                topFlange.fill("none");
+
+                //============================================//
+                // Helper Functions for Drawing Layers
+                //============================================//
+                
+                clearableShapes.forEach(x => x.remove());
+
+                function hatchPattern(color, hatchSize=4) {
+                    return draw.pattern(hatchSize, hatchSize, add => {
+                        add.rect(hatchSize, hatchSize).fill(color);
+                        add.line(0, 0, hatchSize, hatchSize).stroke({ color: "black", width: 0.5 });
+                    });
+                }
+                function addPlainText(str, x, cy, anchor) {
+                    var text = draw.text(str);
+                    text.font({ anchor: anchor, size: settings.fontSize, leading: 1.2, family: "Helvetica" });
+                    text.dx(x); // x() does not work with anchor: "end"
+                    text.cy(cy);
+                    clearableShapes.push(text);
+                    return text;
+                }
+                function addFormattedText(lines, x, cy, anchor, wrap, primaryLookup, secondaryLookup) {
+                    for (var [key, value] of Object.entries(primaryLookup)) {
+                        lines = lines.map(e => e.replaceAll("{" + key + "}", value));
+                    }
+                    for (var [key, value] of Object.entries(secondaryLookup)) {
+                        lines = lines.map(e => e.replaceAll("{" + key + "}", value));
+                    }
+                    lines = lines.filter(e => !e.includes("{")); // If any remaining unparsed variables, they must be secondary variables
+
+                    lines = lines.map(e => e.split("**"));
+                    var text = draw.text(add => {
+                        for (line of lines) {
+                            var currBold = false;
+                            var tspan;
+                            for (var segment of line) {
+                                if (segment != "") {
+                                    tspan = add.tspan(segment);
+                                    // Fix newlines to work in Visio
+                                    tspan.element("v:newlineChar", { "xmlns:v": "http://schemas.microsoft.com/visio/2003/SVGExtensions/" });
+                                    if (currBold) tspan.font({ weight: "bold" });
+                                    if (wrap && segment == line[0]) tspan.newLine();
+                                }
+                                currBold = !currBold;
+                            }
+                        }
+                    });
+                    text.font({ anchor: anchor, size: settings.fontSize, leading: 1, family: "Helvetica" });
+                    text.dx(x); // x() does not work with anchor: "end"
+                    text.cy(cy);
+                    clearableShapes.push(text);
+                    return text;
+                }
+                function addMarking(x, y, points) {
+                    var marking = draw.polyline(points);
+                    marking.move(x, y);
+                    marking.fill("none").stroke({ color: "black", width: 1 });
+                    clearableShapes.push(marking);
+                }
+                
+                //============================================//
+                // Draw Layers
+                //============================================//
+
+                var isGapAbove = true;
+                for (var row of layerData) {
+                    // Useful variables
+                    const visibleSplit = settings.splitLayers ? row.flag != "unsplit" : row.flag != "above" && row.flag != "below";
+                    const wrap = row.height >= settings.minWrapHeight;
+                    const material = materialData[row.label];
+                    const notchPoints = [[0, 0], [settings.notchWidth, 0], [settings.notchWidth / 2, 0], [settings.notchWidth / 2, row.height], [settings.notchWidth, row.height], [0, row.height]];
+                    const leftBracketPoints = [[settings.notchWidth, 0], [0, 1], [0, row.height - 1], [settings.notchWidth, row.height]];
+
+                    // Draw background color
+                    if (row.flag != "unsplit" && row.color != "none" && row.color != "transparent") {
+                        var background = draw.rect(shellHeight, row.height);
+                        background.move(0, row.absoluteDepth);
+                        background.fill(row.color);
+                        if (material != undefined && material.loadMethod == "Dense") {
+                            background.fill(hatchPattern(row.color));
+                        }
+                        background.back();
+                        clearableShapes.push(background);
+                    }
+
+                    // Draw top border
+                    if (row.absoluteElevation != reactorHeight && row.height > 0) {
+                        var border = draw.line(0, 0, shellHeight, 0);
+                        border.move(0, row.absoluteDepth);
+                        border.stroke({ color: "black", width: 0.5, dasharray: row.flag == "below" ? "4 4" : "1 0" });
+                        border.insertBefore(mask);
+                        clearableShapes.push(border);
+                    }
+
+                    var primaryLookup = {
+                        name: row.label,
+                        height: formatMeasurement(row.height),
+                        volume: row.volume.toFixed(settings.decimals),
+                    };
+                    var secondaryLookup = {};
+                    if (material != undefined) {
+                        secondaryLookup = {
+                            mass: row.mass.toFixed(settings.decimals),
+                            bulkDensity: material.bulkDensity.toFixed(settings.decimals),
+                            numPkgs: Math.round(row.numPkgs * 10**settings.numPkgsDecimals) / 10**settings.numPkgsDecimals,
+                            pkgType: material.pkgType,
+                            qtyPerPkg: material.qtyPerPkg.toFixed(settings.decimals),
+                            qtyUoM: material.qtyUoM,
+                            loadMethod: material.loadMethod,
+                        };
+                    }
+
+                    // Write text within layer
+                    if (row.label != "" && visibleSplit) {
+                        var text = addFormattedText(settings.layerLabelDataFormat, 0, row.absoluteDepth + row.height / 2 + 0.5, "middle", wrap, primaryLookup, secondaryLookup).cx(shellHeight / 2);
+                        if (material != undefined && material.loadMethod == "Dense") {
+                            var highlight = draw.rect(text.bbox().width + 5, text.bbox().height + 5);
+                            highlight.center(text.bbox().cx, text.bbox().cy);
+                            highlight.fill(row.color);
+                            highlight.insertBefore(text);
+                            // highlight.opacity(0.8);
+                            clearableShapes.push(highlight);
+                        }
+                    }
+
+                    if (row.flag != "unsplit") {
+                        // Right-side notches -- Relative measurements
+                        const isGap = row.label == "" || settings.gapLayers.includes(row.label);
+                        if (!isGapAbove || !isGap) {
+                            addPlainText(formatMeasurement(row["relative" + settings.direction]), shellHeight + settings.notchWidth * 2.25, row.absoluteDepth, "start");
+                        }
+                        if (!isGap) {
+                            addMarking(shellHeight + settings.notchWidth, row.absoluteDepth, notchPoints);
+                        }
+                        
+                        // Right-side notches -- Absolute measurements
+                        addPlainText(formatMeasurement(row["absolute" + settings.direction] - settings.referenceLineOffset), shellHeight + settings.notchWidth * 6.25, row.absoluteDepth, "start");
+                        addMarking(shellHeight + settings.notchWidth * 5, row.absoluteDepth, notchPoints);
+                        
+                        isGapAbove = isGap;
+                    }
+
+                    // Left-side notches -- Heights & other data
+                    if (row.height > 0 && visibleSplit) {
+                        addFormattedText(settings.leftNotchDataFormat, -settings.notchWidth * 2.5, row.absoluteDepth + row.height / 2, "end", wrap, primaryLookup, secondaryLookup);
+                        addMarking(-settings.notchWidth * 2, row.absoluteDepth, leftBracketPoints);
+                    }
+                }
+                
+                //============================================//
+                // Draw Miscellaneous Features
+                //============================================//
+                
+                // Draw reference line
+                if (settings.referenceLineOffset > 0) {
+                    var referenceLine = draw.line(0, 0, shellHeight, 0);
+                    referenceLine.move(0, settings.direction == "Depth" ? settings.referenceLineOffset : reactorHeight - settings.referenceLineOffset);
+                    referenceLine.stroke({ color: "black", width: 2 });
+                    referenceLine.insertBefore(mask);
+                    clearableShapes.push(referenceLine);
+                }
+
+                // Add document info
+                var currentDate = new Date();
+                var month = currentDate.toLocaleString("default", { month: "short" });
+                var crossSectionalArea = Math.PI * settings.innerDiameter**2 / 4 / 144;
+                var sock, dense;
+                docInfo.text(add => {
+                    add.tspan(settings.equipmentTag).font({ size: 14, weight: "bold" }).newLine();
+                    add.tspan("Loading Diagram").font({ size: 14, weight: "bold" }).newLine();
+                    add.tspan(month + ". " + currentDate.getDate() + ", " + currentDate.getFullYear()).font({ size: 14 }).newLine();
+                    add.tspan("").newLine();
+                    add.tspan(`ID: ${formatMeasurement(settings.innerDiameter, true)} = ${settings.innerDiameter}"`).newLine();
+                    add.tspan(`TT: ${formatMeasurement(settings.tanToTan, true)} = ${settings.tanToTan}"`).newLine();
+                    add.tspan(`Aₓ: ${crossSectionalArea.toFixed(2)} ft²`).newLine();
+                    add.tspan("").newLine();
+                    add.tspan("All layers sock loaded").newLine();
+                    add.tspan("unless specified.").newLine();
+                    add.tspan("").newLine();
+                    sock = add.tspan("Sock loaded:").dx(-10).newLine();
+                    dense = add.tspan("Dense loaded:").dx(-10).newLine();
+                });
+                // Fix newlines to work in Visio
+                docInfo.children().each(x => x.element("v:newlineChar", { "xmlns:v": "http://schemas.microsoft.com/visio/2003/SVGExtensions/" }));
+                docInfo.font({ anchor: "middle", size: 10, family: "Helvetica" });
+                docInfo.cx(shellHeight + settings.marginRight - docInfo.bbox().width / 2);
+                
+                // var bbox = draw.rect(docInfo.bbox().width, docInfo.bbox().height);
+                // bbox.move(docInfo.bbox().x, docInfo.bbox().y);
+                // bbox.fill("none").stroke("black");
+
+                // Add legend
+                sample1.center(sock.bbox().x2 + 10, sock.bbox().cy);
+                sample1.fill("white").stroke("black");
+
+                sample2.center(dense.bbox().x2 + 10, dense.bbox().cy);
+                sample2.fill(hatchPattern("white")).stroke("black");
+
+                updateDraggability();
+            }
+            
+            update();
+            document.getElementById("settingsJSON").value = JSON.stringify(settings, null, " ");
+
+            //============================================//
+            // Define Interactive Behaviour
+            //============================================//
+
+            setTimeout(function () { // Fix for page scrolled down when page/svg loaded
+                window.scrollTo(0, 0);
+            }, 12);
+            document.getElementById("updateDrawing").addEventListener("click", update);
+            document.getElementById("downloadSVG").addEventListener("click", e => {
+                var fileName = settings.equipmentTag.replace(/\s/g, "_") + "_Loading_Diagram.svg";
+                var file = new File([draw.svg()], fileName, { type: "image/svg+xml" });
+                var url = URL.createObjectURL(file);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            });
+            document.getElementById("restoreSettings").addEventListener("click", e => {
+                Object.assign(settings, JSON.parse(document.getElementById("settingsJSON").value));
+                setInputs();
+                requiresReprocessData = true;
+                update();
+            });
+            document.getElementById("saveSettings").addEventListener("click", e => {
+                update();
+                document.getElementById("settingsJSON").value = JSON.stringify(settings, null, " ");
+            });
+            function updateDraggability() {
+                var shapesDraggable = document.getElementById("shapesDraggable").checked;
+                [docInfo, sample1, sample2].concat(clearableShapes).forEach(x => {
+                    if (shapesDraggable) {
+                        x.draggable(true);
+                        x.attr({ style: "cursor: move"});
+                    }
+                    else {
+                        x.draggable(false);
+                        x.attr({ style: "cursor: unset"});
+                    }
+                });
+            }
+            document.getElementById("shapesDraggable").addEventListener("click", updateDraggability);
+
+            // Parameters that require data reprocessing when updated:
+            document.getElementById("tanToTan").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("headWidthToHeightRatio").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("topFlangeHeight").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("layerData").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("materialData").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("zeroLayers").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("gapLayers").addEventListener("input", e => requiresReprocessData = true);
+            document.getElementById("splitLayers").addEventListener("input", e => requiresReprocessData = true);
+        </script>
+    </body>
+</html>

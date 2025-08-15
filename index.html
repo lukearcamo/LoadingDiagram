@@ -52,6 +52,7 @@
     <body>
         <div id="UI">
             <h1>Loading Diagram Generator</h1>
+            Switch to <a href="/horizontal">horizontal</a> vessel
             <details>
                 <summary><h3>About</h3></summary>
                 <p>
@@ -541,6 +542,8 @@ Catalyst 2,38.1,200,lb,drum,Sock
                             for (var segment of line) {
                                 if (segment != "") {
                                     tspan = add.tspan(segment);
+                                    // Fix newlines to work in Visio
+                                    tspan.element("v:newlineChar", { "xmlns:v": "http://schemas.microsoft.com/visio/2003/SVGExtensions/" });
                                     if (currBold) tspan.font({ weight: "bold" });
                                     if (wrap && segment == line[0]) tspan.newLine();
                                 }
@@ -683,6 +686,8 @@ Catalyst 2,38.1,200,lb,drum,Sock
                     sock = add.tspan("Sock loaded:").dx(-10).newLine();
                     dense = add.tspan("Dense loaded:").dx(-10).newLine();
                 });
+                // Fix newlines to work in Visio
+                docInfo.children().each(x => x.element("v:newlineChar", { "xmlns:v": "http://schemas.microsoft.com/visio/2003/SVGExtensions/" }));
                 docInfo.font({ anchor: "middle", size: 10, family: "Helvetica" });
                 docInfo.cx(settings.innerDiameter + settings.marginRight - docInfo.bbox().width / 2);
                 
