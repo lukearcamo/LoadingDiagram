@@ -288,7 +288,7 @@ Catalyst 2,38.1,200,lb,drum,Sock
             }
             function cylinderVolume(h, d, length) { // UoM: in
                 var R = settings.innerDiameter / 2;
-                return R**2 * Math.acos(1 - h / R) - (R - h) * Math.sqrt(R**2 - (R - h)**2) * length / 1728; // UoM: ft3
+                return (R**2 * Math.acos(1 - h / R) - (R - h) * Math.sqrt(R**2 - (R - h)**2)) * length / 1728; // UoM: ft3
             }
             // Source: https://www.vcalc.com/wiki/ellipsoid-cap-volume
             function ellipsoidCapVolume(h) { // UoM: in
